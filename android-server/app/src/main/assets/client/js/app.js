@@ -10,7 +10,7 @@ const State = {
   currentPath: '', // Tracks current directory relative to shared folder
   history: [],     // Breadcrumbs stack for folder navigation
   files: [],       // Current file list fetched from server
-  currentScreen: 'connection-screen',
+  currentScreen: 'splash-screen',
   focusedIndex: 0,
   focusableElements: [],
   osdTimer: null,
@@ -143,8 +143,11 @@ function initApp() {
   // Initialize focusable elements on the starting screen
   updateFocusableList();
   
-  // Focus the IP Input field first
-  focusElement(0);
+  // Auto-transition from splash to connection screen after 2.5 seconds
+  setTimeout(() => {
+    switchScreen('connection-screen');
+    focusElement(0); // Focus the IP Input field first
+  }, 2500);
 }
 
 // ----------------------------------------------------

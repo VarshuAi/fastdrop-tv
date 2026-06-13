@@ -2,21 +2,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-color: #060913;
-  --panel-bg: rgba(15, 23, 42, 0.45);
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --accent-color: #0084ff;
-  --accent-glow: rgba(0, 132, 255, 0.5);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --focus-bg: #0084ff;
-  --focus-text: #ffffff;
+  --bg-color: #0c0906; /* Dark gold/charcoal tint */
+  --panel-bg: rgba(28, 20, 12, 0.55); /* Warm gold tinted glass */
+  --panel-border: rgba(212, 175, 55, 0.15); /* Subtle gold border */
+  --accent-color: #d4af37; /* Pure gold */
+  --accent-glow: rgba(212, 175, 55, 0.45); /* Golden glow */
+  --text-primary: #fffdf5; /* Off-white gold tint */
+  --text-secondary: #c7b897; /* Warm sand/bronze text */
+  --focus-bg: #d4af37; /* Gold focus */
+  --focus-text: #0c0906; /* Dark text on focused items */
   
   /* Media Specific Colors */
-  --color-folder: #ffb800;
-  --color-video: #38bdf8;
-  --color-audio: #f43f5e;
-  --color-image: #10b981;
+  --color-folder: #ffca28;
+  --color-video: #ffe082;
+  --color-audio: #ffb300;
+  --color-image: #ffe8a1;
 }
 
 * {
@@ -54,7 +54,7 @@ body {
   right: -10%;
   width: 65vw;
   height: 65vw;
-  background: radial-gradient(circle, rgba(0, 132, 255, 0.12) 0%, rgba(0,0,0,0) 70%);
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, rgba(0,0,0,0) 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -66,7 +66,7 @@ body {
   left: -10%;
   width: 65vw;
   height: 65vw;
-  background: radial-gradient(circle, rgba(244, 63, 94, 0.08) 0%, rgba(0,0,0,0) 70%);
+  background: radial-gradient(circle, rgba(255, 179, 0, 0.06) 0%, rgba(0,0,0,0) 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -133,7 +133,7 @@ body {
   font-size: 42px;
   font-weight: 800;
   letter-spacing: -1px;
-  background: linear-gradient(135deg, #ffffff 30%, #38bdf8 100%);
+  background: linear-gradient(135deg, #fffcf0 30%, #d4af37 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -174,7 +174,7 @@ body {
 .input-row:has(input.focused) {
   border-color: var(--accent-color);
   box-shadow: 0 0 20px var(--accent-glow);
-  background: rgba(0, 132, 255, 0.04);
+  background: rgba(212, 175, 55, 0.04);
 }
 
 .input-row input {
@@ -226,7 +226,7 @@ body {
   border-color: var(--focus-bg);
   color: var(--focus-text);
   transform: scale(1.03);
-  box-shadow: 0 10px 25px rgba(0, 132, 255, 0.4);
+  box-shadow: 0 10px 25px var(--accent-glow);
 }
 
 .instructions {
@@ -697,8 +697,8 @@ body {
 
 /* Animations */
 @keyframes pulse {
-  0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 132, 255, 0.3)); }
-  100% { transform: scale(1.06); filter: drop-shadow(0 0 25px rgba(0, 132, 255, 0.6)); }
+  0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.3)); }
+  100% { transform: scale(1.06); filter: drop-shadow(0 0 25px rgba(212, 175, 55, 0.6)); }
 }
 
 @keyframes bounce {
@@ -784,4 +784,85 @@ body {
 .dialog-buttons .btn {
   flex: 1;
   margin-top: 0;
+}
+
+/* Splash Screen Styles */
+#splash-screen {
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at center, #1c140c 0%, #060403 100%);
+}
+
+.splash-card {
+  width: 550px;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(212, 175, 55, 0.15);
+  animation: fadeInSplash 0.8s ease-out;
+}
+
+.splash-logo {
+  font-size: 80px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 35px var(--accent-glow);
+  animation: floatGold 3s infinite ease-in-out;
+}
+
+.splash-title {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, #ffffff 20%, #ffe082 50%, #d4af37 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 5px;
+  text-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+
+.splash-developer {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 40px;
+  opacity: 0.85;
+}
+
+.splash-loader {
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37, #ffe082);
+  box-shadow: 0 0 10px var(--accent-glow);
+  border-radius: 2px;
+  animation: loadProgress 2.2s cubic-bezier(0.1, 0.8, 0.1, 1) forwards;
+}
+
+/* Splash Animations */
+@keyframes fadeInSplash {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes floatGold {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes loadProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
 }
