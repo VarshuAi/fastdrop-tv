@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://tizen.fastdrop.tv" version="1.0.0" viewmodes="maximized">
+    <tizen:application id="tizen.fastdrop.tv" package="fastdroptv" required_version="3.0"/>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <icon src="icon.png"/>
+    <name>FastDrop TV</name>
+    <!-- Privilege to communicate with local laptop/PC network IP -->
+    <privilege name="http://tizen.org/privilege/internet"/>
+    <!-- Privilege to register key handlers for physical Samsung Smart Remote control buttons -->
+    <privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <profile name="tv-samsung"/>
+</widget>

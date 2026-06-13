@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastDrop TV</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Load Tizen Web API libraries if running on a real Tizen TV -->
+  <script type="text/javascript" src="$WEBAPIS/webapis/webapis.js" defer></script>
+</head>
+<body>
+
+  <!-- Main Container -->
+  <div id="app" class="app-container">
+
+    <!-- SCREEN 1: Server Connection IP Input -->
+    <div id="connection-screen" class="screen active">
+      <div class="glass-card connection-card">
+        <div class="logo-area">
+          <div class="logo-icon">⚡</div>
+          <h1>FastDrop TV</h1>
+          <p class="subtitle">Local Network Media Streamer</p>
+        </div>
+
+        <div class="form-group">
+          <label for="ip-input">Enter Server IP Address:</label>
+          <div class="input-row">
+            <input type="text" id="ip-input" class="focusable" placeholder="e.g. 192.168.1.8" value="" tabindex="1">
+            <span class="port-label">:8080</span>
+          </div>
+          <small class="help-text">Ensure your laptop and TV are on the same Wi-Fi network.</small>
+        </div>
+
+        <button id="connect-btn" class="btn focusable" tabindex="2">Connect Server</button>
+        
+        <div class="instructions">
+          <h3>How to start:</h3>
+          <ol>
+            <li>Run the FastDrop TV server on your Windows PC.</li>
+            <li>Look at the IP addresses printed in the server command line.</li>
+            <li>Enter that IP above and select Connect.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: File Browser -->
+    <div id="browser-screen" class="screen">
+      <header class="browser-header">
+        <div class="brand-small">
+          <span class="logo-icon-small">⚡</span> FastDrop TV
+        </div>
+        <div class="breadcrumbs" id="current-path-display">Shared Folder /</div>
+        <div class="server-status" id="server-status-indicator">Connected to 192.168.1.8</div>
+      </header>
+
+      <!-- Grid area for folders and files -->
+      <main class="browser-content">
+        <div id="file-grid" class="file-grid-container">
+          <!-- Dynamically populated files and folders -->
+        </div>
+        
+        <div id="empty-folder-msg" class="empty-state-message hidden">
+          <div class="empty-icon">📁</div>
+          <h3>This folder is empty</h3>
+          <p>Add some media files (MP4, MKV, MP3, JPG, PNG) to the shared directory.</p>
+        </div>
+      </main>
+
+      <footer class="browser-footer">
+        <div class="hint-item"><span class="key-badge">▲▼◀▶</span> Move Focus</div>
+        <div class="hint-item"><span class="key-badge">ENTER</span> Select/Play</div>
+        <div class="hint-item"><span class="key-badge">BACK</span> Go Back</div>
+      </footer>
+    </div>
+
+    <!-- SCREEN 3: Video Player Overlay -->
+    <div id="video-screen" class="screen player-screen">
+      <video id="video-player" class="player-element" preload="auto">
+        Your TV does not support HTML5 video streaming.
+      </video>
+      
+      <!-- Video Custom On-Screen Display (OSD) -->
+      <div id="video-osd" class="osd-container">
+        <div class="osd-header">
+          <h2 id="video-title">Video Name.mp4</h2>
+        </div>
+        <div class="osd-controls">
+          <div class="osd-bar-container">
+            <span id="video-current-time">00:00</span>
+            <div class="osd-progress-bg">
+              <div id="video-progress-bar" class="osd-progress-fill" style="width: 0%;"></div>
+            </div>
+            <span id="video-duration">00:00</span>
+          </div>
+          <div class="osd-buttons-row">
+            <span class="osd-hint">Press <span class="key-badge">ENTER</span> to Play/Pause &bull; Press <span class="key-badge">BACK</span> to Exit</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: Image Viewer Overlay -->
+    <div id="image-screen" class="screen player-screen image-viewer-screen">
+      <div class="image-viewer-container">
+        <img id="image-viewer" class="player-element" src="" alt="Image Viewer">
+        <div class="image-title-overlay" id="image-title">Image Name.jpg</div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: Audio Player Overlay -->
+    <div id="audio-screen" class="screen player-screen audio-player-screen">
+      <div class="glass-card audio-player-card">
+        <div class="audio-artwork">🎵</div>
+        <h2 id="audio-title" class="audio-title">Song Title.mp3</h2>
+        <p class="audio-artist">FastDrop Audio Streamer</p>
+        
+        <audio id="audio-player" class="player-element" preload="auto"></audio>
+
+        <div class="audio-progress-container">
+          <span id="audio-current-time">00:00</span>
+          <div class="audio-progress-bg">
+            <div id="audio-progress-bar" class="audio-progress-fill" style="width: 0%;"></div>
+          </div>
+          <span id="audio-duration">00:00</span>
+        </div>
+
+        <div class="audio-status-indicator" id="audio-status-text">Playing...</div>
+
+        <div class="audio-hints">
+          Press <span class="key-badge">ENTER</span> to Play/Pause <br> Press <span class="key-badge">BACK</span> to return to files
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Alert/Toast Notification System -->
+    <div id="toast-notification" class="toast hidden">
+      <div class="toast-content">
+        <span class="toast-icon">⚠️</span>
+        <span id="toast-message" class="toast-text">An error occurred!</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

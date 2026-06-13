@@ -1,0 +1,16 @@
+# Node.js dependencies
+server/node_modules/
+
+# Android build files and configurations
+android-server/.gradle/
+android-server/build/
+android-server/app/build/
+android-server/local.properties
+android-server/.idea/
+android-server/*.iml
+android-server/app/*.iml
+android-server/.cxx/
+
+# Operating system files
+.DS_Store
+Thumbs.db
