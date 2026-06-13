@@ -211,6 +211,40 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 val supportedImage = listOf("jpg", "jpeg", "png", "webp")
                 val allSupported = supportedVideo + supportedAudio + supportedImage
 
+                val detectedPosters = mutableSetOf<String>()
+                val videoPosters = mutableMapOf<String, String>()
+
+                // Pass 1: Scan for video files to find matching posters
+                for (file in files) {
+                    if (file.name.startsWith(".")) continue
+                    if (file.isFile) {
+                        val ext = getExtension(file.name)
+                        if (supportedVideo.contains(ext)) {
+                            val baseAbsolutePath = file.absolutePath.substring(0, file.absolutePath.length - ext.length - 1)
+                            val relItemPath = file.absolutePath.substring(baseDir.absolutePath.length)
+                                .replace('\\', '/')
+                                .trimStart('/')
+                            val baseRelPath = relItemPath.substring(0, relItemPath.length - ext.length - 1)
+
+                            val jpgFile = File("$baseAbsolutePath.jpg")
+                            val jpegFile = File("$baseAbsolutePath.jpeg")
+                            val pngFile = File("$baseAbsolutePath.png")
+
+                            if (jpgFile.exists() && jpgFile.isFile) {
+                                videoPosters[relItemPath] = "$baseRelPath.jpg"
+                                detectedPosters.add(jpgFile.canonicalPath)
+                            } else if (jpegFile.exists() && jpegFile.isFile) {
+                                videoPosters[relItemPath] = "$baseRelPath.jpeg"
+                                detectedPosters.add(jpegFile.canonicalPath)
+                            } else if (pngFile.exists() && pngFile.isFile) {
+                                videoPosters[relItemPath] = "$baseRelPath.png"
+                                detectedPosters.add(pngFile.canonicalPath)
+                            }
+                        }
+                    }
+                }
+
+                // Pass 2: Process files and folders
                 for (file in files) {
                     if (file.name.startsWith(".")) continue // Ignore hidden files
 
@@ -224,6 +258,11 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                     } else if (file.isFile) {
                         val ext = getExtension(file.name)
                         if (allSupported.contains(ext)) {
+                            // Exclude raw images that are already used as posters
+                            if (supportedImage.contains(ext) && detectedPosters.contains(file.canonicalPath)) {
+                                continue
+                            }
+
                             val type = when {
                                 supportedVideo.contains(ext) -> "video"
                                 supportedAudio.contains(ext) -> "audio"
@@ -232,6 +271,7 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                             
                             // Check if a subtitle file (.vtt or .srt) exists next to the video
                             var subtitlePath: String? = null
+                            var posterPath: String? = null
                             if (type == "video") {
                                 val baseName = file.absolutePath.substring(0, file.absolutePath.length - ext.length - 1)
                                 val vttFile = File("$baseName.vtt")
@@ -241,11 +281,13 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                                 } else if (srtFile.exists() && srtFile.isFile) {
                                     subtitlePath = relItemPath.substring(0, relItemPath.length - ext.length - 1) + ".srt"
                                 }
+
+                                posterPath = videoPosters[relItemPath]
                             }
 
                             val mime = mimeMap[ext] ?: "application/octet-stream"
                             val formattedSize = formatBytes(file.length())
-                            val fileJson = createItemJson(file.name, type, relItemPath, file.length(), formattedSize, ".$ext", mime, subtitlePath)
+                            val fileJson = createItemJson(file.name, type, relItemPath, file.length(), formattedSize, ".$ext", mime, subtitlePath, posterPath)
                             filesList.add(fileJson)
                         }
                     }
@@ -460,11 +502,12 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         return String.format(Locale.ENGLISH, "%.2f %s", bytes / Math.pow(k.toDouble(), i.toDouble()), sizes[i])
     }
 
-    private fun createItemJson(name: String, type: String, relPath: String, size: Long, formattedSize: String, ext: String, mime: String, subtitlePath: String? = null): String {
+    private fun createItemJson(name: String, type: String, relPath: String, size: Long, formattedSize: String, ext: String, mime: String, subtitlePath: String? = null, posterPath: String? = null): String {
         val cleanName = escapeJsonString(name)
         val cleanPath = escapeJsonString(relPath)
         val subPathPart = if (subtitlePath != null) ",\"subtitlePath\":\"${escapeJsonString(subtitlePath)}\"" else ""
-        return "{\"name\":\"$cleanName\",\"type\":\"$type\",\"relativePath\":\"$cleanPath\",\"size\":$size,\"sizeFormatted\":\"$formattedSize\",\"extension\":\"$ext\",\"mimeType\":\"$mime\"$subPathPart}"
+        val posterPathPart = if (posterPath != null) ",\"posterPath\":\"${escapeJsonString(posterPath)}\"" else ""
+        return "{\"name\":\"$cleanName\",\"type\":\"$type\",\"relativePath\":\"$cleanPath\",\"size\":$size,\"sizeFormatted\":\"$formattedSize\",\"extension\":\"$ext\",\"mimeType\":\"$mime\"$subPathPart$posterPathPart}"
     }
 
     private fun escapeJsonString(str: String): String {

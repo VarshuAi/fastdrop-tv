@@ -205,6 +205,32 @@ app.get('/api/files', (req, res) => {
     const supportedImage = ['.jpg', '.jpeg', '.png', '.webp'];
     const allSupported = [...supportedVideo, ...supportedAudio, ...supportedImage];
 
+    // First pass: scan for video files and identify matching poster images
+    const detectedPosters = new Set();
+    const videoPosters = {};
+
+    for (const item of items) {
+      if (item.startsWith('.')) continue;
+      const itemPath = path.join(targetDirectory, item);
+      const ext = path.extname(item).toLowerCase();
+      if (supportedVideo.includes(ext)) {
+        const base = itemPath.slice(0, -ext.length);
+        const relativeItemPath = path.relative(resolvedSharedFolder, itemPath).replace(/\\/g, '/');
+        const relativeBase = relativeItemPath.slice(0, -ext.length);
+
+        if (fs.existsSync(base + '.jpg')) {
+          videoPosters[relativeItemPath] = relativeBase + '.jpg';
+          detectedPosters.add(path.resolve(base + '.jpg'));
+        } else if (fs.existsSync(base + '.jpeg')) {
+          videoPosters[relativeItemPath] = relativeBase + '.jpeg';
+          detectedPosters.add(path.resolve(base + '.jpeg'));
+        } else if (fs.existsSync(base + '.png')) {
+          videoPosters[relativeItemPath] = relativeBase + '.png';
+          detectedPosters.add(path.resolve(base + '.png'));
+        }
+      }
+    }
+
     for (const item of items) {
       // Ignore hidden files (starting with dot)
       if (item.startsWith('.')) continue;
@@ -230,8 +256,14 @@ app.get('/api/files', (req, res) => {
           
           // Filter to include only supported media types
           if (allSupported.includes(ext)) {
+            // Exclude raw images that are already used as posters
+            if (supportedImage.includes(ext) && detectedPosters.has(path.resolve(itemPath))) {
+              continue;
+            }
+
             let mediaType = 'file';
             let subtitlePath = null;
+            let posterPath = null;
 
             if (supportedVideo.includes(ext)) {
               mediaType = 'video';
@@ -244,6 +276,9 @@ app.get('/api/files', (req, res) => {
               } else if (fs.existsSync(srtPath)) {
                 subtitlePath = relativeItemPath.slice(0, -ext.length) + '.srt';
               }
+
+              // Retrieve the poster path identified in the first pass
+              posterPath = videoPosters[relativeItemPath] || null;
             }
             else if (supportedAudio.includes(ext)) mediaType = 'audio';
             else if (supportedImage.includes(ext)) mediaType = 'image';
@@ -256,7 +291,8 @@ app.get('/api/files', (req, res) => {
               sizeFormatted: formatBytes(itemStats.size),
               extension: ext,
               mimeType: getMimeType(itemPath),
-              subtitlePath: subtitlePath
+              subtitlePath: subtitlePath,
+              posterPath: posterPath
             });
           }
         }

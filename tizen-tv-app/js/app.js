@@ -23,6 +23,9 @@ const State = {
   currentImageIndex: -1,
   slideshowTimer: null,
   isSlideshowActive: false,
+  subSize: localStorage.getItem('fastdrop_sub_size') || 'medium',
+  subColor: localStorage.getItem('fastdrop_sub_color') || 'white',
+  isVideoSettingsActive: false,
 };
 
 // DOM Cache
@@ -53,6 +56,8 @@ const DOM = {
   videoDuration: document.getElementById('video-duration'),
   videoProgressBar: document.getElementById('video-progress-bar'),
   videoSubtitleTrack: document.getElementById('video-subtitle-track'),
+  subSizeBtn: document.getElementById('sub-size-btn'),
+  subColorBtn: document.getElementById('sub-color-btn'),
   
   // Image Viewer Elements
   imageViewer: document.getElementById('image-viewer'),
@@ -134,6 +139,9 @@ function initApp() {
   
   // Set up media player listeners
   setupMediaPlayerListeners();
+  
+  // Set up subtitle OSD settings listeners
+  setupSubtitleSettingsListeners();
 
   // Set up resume dialog button listeners
   if (DOM.resumeYesBtn && DOM.resumeNoBtn) {
@@ -216,7 +224,11 @@ function handleKeyDown(e) {
   if (keyCode === Keys.TIZEN_BACK || 
       (keyCode === Keys.BACKSPACE && State.currentScreen !== 'connection-screen' && document.activeElement.tagName !== 'INPUT')) {
     e.preventDefault();
-    goBack();
+    if (State.currentScreen === 'video-screen' && State.isVideoSettingsActive) {
+      exitVideoSettings();
+    } else {
+      goBack();
+    }
     return;
   }
 
@@ -502,15 +514,22 @@ function renderFiles(items) {
     card.setAttribute('data-type', item.type);
     card.setAttribute('tabindex', '0');
 
-    // Select icon based on item type
-    let icon = '📄';
-    if (item.type === 'folder') icon = '📁';
-    else if (item.type === 'video') icon = '🎬';
-    else if (item.type === 'audio') icon = '🎵';
-    else if (item.type === 'image') icon = '🖼️';
+    // Select icon or poster based on item type
+    let iconHtml = '';
+    if (item.type === 'video' && item.posterPath) {
+      const posterUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.posterPath)}`;
+      iconHtml = `<div class="item-poster-wrapper"><img src="${posterUrl}" class="item-poster" alt="${item.name} poster"></div>`;
+    } else {
+      let icon = '📄';
+      if (item.type === 'folder') icon = '📁';
+      else if (item.type === 'video') icon = '🎬';
+      else if (item.type === 'audio') icon = '🎵';
+      else if (item.type === 'image') icon = '🖼️';
+      iconHtml = `<div class="item-icon-wrapper">${icon}</div>`;
+    }
 
     card.innerHTML = `
-      <div class="item-icon-wrapper">${icon}</div>
+      ${iconHtml}
       <div class="item-name">${item.name}</div>
       <div class="item-meta">
         <span>${item.type.charAt(0).toUpperCase() + item.type.slice(1)}</span>
@@ -594,6 +613,9 @@ function startVideoPlayback(startTime) {
   }
   
   switchScreen('video-screen');
+  
+  // Apply Subtitle size and color configurations
+  applySubtitleStyles();
   
   // Auto-request fullscreen on TV browser for immersive experience
   try {
@@ -679,10 +701,43 @@ function handleResumeDialogNavigation(keyCode, e) {
 function handleVideoControls(keyCode, e) {
   const video = DOM.videoPlayer;
   
+  // If settings are active, trap arrow keys to settings buttons
+  if (State.isVideoSettingsActive) {
+    const total = State.focusableElements.length;
+    if (total > 0) {
+      if (keyCode === Keys.LEFT) {
+        e.preventDefault();
+        const nextIndex = State.focusedIndex > 0 ? State.focusedIndex - 1 : total - 1;
+        focusElement(nextIndex);
+      }
+      else if (keyCode === Keys.RIGHT) {
+        e.preventDefault();
+        const nextIndex = State.focusedIndex < total - 1 ? State.focusedIndex + 1 : 0;
+        focusElement(nextIndex);
+      }
+      else if (keyCode === Keys.DOWN) {
+        e.preventDefault();
+        exitVideoSettings();
+      }
+      else if (keyCode === Keys.ENTER) {
+        e.preventDefault();
+        const target = State.focusableElements[State.focusedIndex];
+        if (target) {
+          target.click();
+        }
+      }
+    }
+    return;
+  }
+
   // Any button click reveals OSD temporarily
   showVideoOsd();
 
-  if (keyCode === Keys.ENTER || keyCode === Keys.SPACE || keyCode === Keys.PLAYPAUSE) {
+  if (keyCode === Keys.UP) {
+    e.preventDefault();
+    enterVideoSettings();
+  }
+  else if (keyCode === Keys.ENTER || keyCode === Keys.SPACE || keyCode === Keys.PLAYPAUSE) {
     e.preventDefault();
     if (video.paused) {
       video.play();
@@ -961,6 +1016,9 @@ function stopAllMedia() {
   if (State.osdTimer) {
     clearTimeout(State.osdTimer);
   }
+  // Reset Video Settings active state
+  exitVideoSettings();
+  
   // Stop slideshow timer if active
   stopSlideshow();
   
@@ -1012,4 +1070,87 @@ function showToast(msg, duration = 4000) {
   toastTimer = setTimeout(() => {
     DOM.toast.classList.add('hidden');
   }, duration);
+}
+
+// Subtitle settings helper functions
+function setupSubtitleSettingsListeners() {
+  if (DOM.subSizeBtn) {
+    DOM.subSizeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cycleSubtitleSize();
+    });
+  }
+  if (DOM.subColorBtn) {
+    DOM.subColorBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cycleSubtitleColor();
+    });
+  }
+}
+
+function enterVideoSettings() {
+  State.isVideoSettingsActive = true;
+  showVideoOsd();
+  // Clear OSD auto-hide timer so OSD remains visible while navigating settings
+  if (State.osdTimer) {
+    clearTimeout(State.osdTimer);
+    State.osdTimer = null;
+  }
+  updateFocusableList();
+  focusElement(0); // Focus Size button
+}
+
+function exitVideoSettings() {
+  State.isVideoSettingsActive = false;
+  // Remove focused styling from any settings buttons
+  State.focusableElements.forEach(el => el.classList.remove('focused'));
+  // Reset focusable list
+  State.focusableElements = [];
+  State.focusedIndex = 0;
+  // Start OSD auto-hide timer
+  showVideoOsd();
+}
+
+function applySubtitleStyles() {
+  const video = DOM.videoPlayer;
+  if (!video) return;
+  
+  // Remove existing size classes
+  video.classList.remove('sub-size-small', 'sub-size-medium', 'sub-size-large');
+  // Remove existing color classes
+  video.classList.remove('sub-color-white', 'sub-color-yellow', 'sub-color-cyan');
+  
+  // Add new classes
+  video.classList.add(`sub-size-${State.subSize}`);
+  video.classList.add(`sub-color-${State.subColor}`);
+  
+  // Update button texts
+  if (DOM.subSizeBtn) {
+    const sizeLabels = { 'small': 'Small', 'medium': 'Med', 'large': 'Large' };
+    DOM.subSizeBtn.innerText = `Size: ${sizeLabels[State.subSize] || 'Med'}`;
+  }
+  if (DOM.subColorBtn) {
+    const colorLabels = { 'white': 'White', 'yellow': 'Yellow', 'cyan': 'Cyan' };
+    DOM.subColorBtn.innerText = `Color: ${colorLabels[State.subColor] || 'White'}`;
+  }
+}
+
+function cycleSubtitleSize() {
+  const sizes = ['small', 'medium', 'large'];
+  let idx = sizes.indexOf(State.subSize);
+  idx = (idx + 1) % sizes.length;
+  State.subSize = sizes[idx];
+  localStorage.setItem('fastdrop_sub_size', State.subSize);
+  applySubtitleStyles();
+  showToast(`Subtitle Size: ${State.subSize.toUpperCase()}`, 1500);
+}
+
+function cycleSubtitleColor() {
+  const colors = ['white', 'yellow', 'cyan'];
+  let idx = colors.indexOf(State.subColor);
+  idx = (idx + 1) % colors.length;
+  State.subColor = colors[idx];
+  localStorage.setItem('fastdrop_sub_color', State.subColor);
+  applySubtitleStyles();
+  showToast(`Subtitle Color: ${State.subColor.toUpperCase()}`, 1500);
 }
