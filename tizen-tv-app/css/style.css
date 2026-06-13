@@ -175,7 +175,7 @@ svg.icon {
   border: 2px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   padding: 6px 20px;
-  transition: all 0.25s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 /* Focused input wrapper */
@@ -224,7 +224,7 @@ svg.icon {
   font-weight: 700;
   border-radius: 14px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   text-align: center;
   margin-top: 10px;
 }
@@ -324,9 +324,7 @@ svg.icon {
 
 /* File/Folder Centered Cards */
 .grid-item {
-  background: var(--panel-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(20, 15, 8, 0.85); /* Premium solid color instead of rendering-heavy blur */
   border: 1px solid var(--panel-border);
   border-radius: 18px;
   padding: 24px 15px;
@@ -335,7 +333,7 @@ svg.icon {
   align-items: center;
   justify-content: center;
   text-align: center;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   height: 210px;
   min-width: 0; /* Prevents text overflow from stretching cells */
@@ -749,14 +747,12 @@ svg.icon {
   left: 50%;
   transform: translateX(-50%);
   z-index: 10000;
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.95); /* Solid background for lag-free rendering */
   border: 1px solid rgba(239, 68, 68, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   padding: 16px 35px;
   border-radius: 40px;
   box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-  transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.25s ease;
 }
 
 .toast.hidden {
@@ -958,9 +954,7 @@ svg.icon {
   position: absolute;
   top: 50px;
   right: 50px;
-  background: rgba(28, 20, 12, 0.75);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background: rgba(28, 20, 12, 0.95); /* Solid background for lag-free rendering */
   border: 1px solid var(--panel-border);
   padding: 12px 24px;
   border-radius: 30px;
@@ -972,7 +966,7 @@ svg.icon {
   align-items: center;
   gap: 8px;
   z-index: 1200;
-  transition: all 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.25s ease;
 }
 
 /* Floating Mini-Player Bar (Music Background Play) */
@@ -981,15 +975,13 @@ svg.icon {
   bottom: 90px;
   right: 50px;
   width: 400px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(20, 15, 8, 0.95); /* Opaque premium gold-charcoal card */
   border: 1px solid var(--panel-border);
   border-radius: 16px;
   padding: 15px 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   z-index: 900;
-  transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.25s ease;
 }
 
 .mini-player-content {

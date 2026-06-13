@@ -239,7 +239,7 @@ function focusElement(index) {
     
     // Auto-scroll the focused element into view
     targetElement.scrollIntoView({
-      behavior: 'smooth',
+      behavior: 'auto',
       block: 'nearest',
       inline: 'nearest'
     });
