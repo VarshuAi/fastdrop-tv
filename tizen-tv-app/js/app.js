@@ -15,6 +15,8 @@ const State = {
   focusableElements: [],
   osdTimer: null,
   isOsdVisible: false,
+  currentVideoItem: null,
+  lastGridFocusedIndex: 0,
 };
 
 // DOM Cache
@@ -43,6 +45,7 @@ const DOM = {
   videoCurrentTime: document.getElementById('video-current-time'),
   videoDuration: document.getElementById('video-duration'),
   videoProgressBar: document.getElementById('video-progress-bar'),
+  videoSubtitleTrack: document.getElementById('video-subtitle-track'),
   
   // Image Viewer Elements
   imageViewer: document.getElementById('image-viewer'),
@@ -55,6 +58,12 @@ const DOM = {
   audioDuration: document.getElementById('audio-duration'),
   audioProgressBar: document.getElementById('audio-progress-bar'),
   audioStatusText: document.getElementById('audio-status-text'),
+  
+  // Resume Dialog Elements
+  resumeDialog: document.getElementById('resume-dialog'),
+  resumeTimeLabel: document.getElementById('resume-time-label'),
+  resumeYesBtn: document.getElementById('resume-yes-btn'),
+  resumeNoBtn: document.getElementById('resume-no-btn'),
   
   // Toast Notification
   toast: document.getElementById('toast-notification'),
@@ -114,6 +123,22 @@ function initApp() {
   
   // Set up media player listeners
   setupMediaPlayerListeners();
+
+  // Set up resume dialog button listeners
+  if (DOM.resumeYesBtn && DOM.resumeNoBtn) {
+    DOM.resumeYesBtn.addEventListener('click', () => {
+      const time = parseFloat(DOM.resumeDialog.dataset.resumeTime || "0");
+      closeResumeDialog();
+      startVideoPlayback(time);
+    });
+    DOM.resumeNoBtn.addEventListener('click', () => {
+      closeResumeDialog();
+      if (State.currentVideoItem) {
+        localStorage.removeItem('fastdrop_resume_' + State.currentVideoItem.relativePath);
+      }
+      startVideoPlayback(0);
+    });
+  }
 
   // Initialize focusable elements on the starting screen
   updateFocusableList();
@@ -197,6 +222,9 @@ function handleKeyDown(e) {
       break;
     case 'image-screen':
       handleImageControls(keyCode, e);
+      break;
+    case 'resume-dialog':
+      handleResumeDialogNavigation(keyCode, e);
       break;
   }
 }
@@ -300,6 +328,12 @@ function goBack() {
       }
     }
   } 
+  else if (State.currentScreen === 'resume-dialog') {
+    closeResumeDialog();
+    switchScreen('browser-screen');
+    updateFocusableList();
+    focusElement(State.lastGridFocusedIndex || 0);
+  }
   else if (State.currentScreen === 'browser-screen') {
     // Navigate up folder structure
     if (State.history.length > 0) {
@@ -317,7 +351,7 @@ function goBack() {
     switchScreen('browser-screen');
     // Restore focus back to the item that opened it
     updateFocusableList();
-    focusElement(State.focusedIndex);
+    focusElement(State.lastGridFocusedIndex || 0);
   }
 }
 
@@ -507,15 +541,52 @@ function handleItemSelection(item) {
 // PLAYBACK: VIDEO PLAYER
 // ----------------------------------------------------
 function playVideo(item) {
+  State.currentVideoItem = item;
+  State.lastGridFocusedIndex = State.focusedIndex;
+  
+  // Check if there is saved progress
+  const savedTimeStr = localStorage.getItem('fastdrop_resume_' + item.relativePath);
+  if (savedTimeStr) {
+    const savedTime = parseFloat(savedTimeStr);
+    if (savedTime > 5) {
+      showResumeDialog(savedTime);
+      return;
+    }
+  }
+  
+  startVideoPlayback(0);
+}
+
+function startVideoPlayback(startTime) {
+  const item = State.currentVideoItem;
+  if (!item) return;
+  
   const streamUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
   console.log(`Streaming Video from: ${streamUrl}`);
   
   DOM.videoTitle.innerText = item.name;
   DOM.videoPlayer.src = streamUrl;
   
+  // Configure Subtitle Track
+  const track = DOM.videoSubtitleTrack || document.getElementById('video-subtitle-track');
+  if (track) {
+    if (item.subtitlePath) {
+      track.src = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.subtitlePath)}`;
+      track.track.mode = 'showing';
+    } else {
+      track.removeAttribute('src');
+      track.track.mode = 'disabled';
+    }
+  }
+  
   switchScreen('video-screen');
   
   DOM.videoPlayer.load();
+  
+  if (startTime > 0) {
+    DOM.videoPlayer.currentTime = startTime;
+  }
+  
   DOM.videoPlayer.play()
     .then(() => {
       showVideoOsd();
@@ -525,6 +596,46 @@ function playVideo(item) {
       showToast("Failed to initiate video playback.");
       goBack();
     });
+}
+
+function showResumeDialog(savedTime) {
+  if (DOM.resumeTimeLabel && DOM.resumeDialog) {
+    DOM.resumeTimeLabel.innerText = formatTime(savedTime);
+    DOM.resumeDialog.classList.remove('hidden');
+    DOM.resumeDialog.dataset.resumeTime = savedTime.toString();
+    State.currentScreen = 'resume-dialog';
+    updateFocusableList();
+    focusElement(0); // Focus the "Resume" button
+  }
+}
+
+function closeResumeDialog() {
+  if (DOM.resumeDialog) {
+    DOM.resumeDialog.classList.add('hidden');
+  }
+}
+
+function handleResumeDialogNavigation(keyCode, e) {
+  const total = State.focusableElements.length;
+  if (total === 0) return;
+
+  if (keyCode === Keys.LEFT || keyCode === Keys.UP) {
+    e.preventDefault();
+    const nextIndex = State.focusedIndex > 0 ? State.focusedIndex - 1 : total - 1;
+    focusElement(nextIndex);
+  } 
+  else if (keyCode === Keys.RIGHT || keyCode === Keys.DOWN) {
+    e.preventDefault();
+    const nextIndex = State.focusedIndex < total - 1 ? State.focusedIndex + 1 : 0;
+    focusElement(nextIndex);
+  } 
+  else if (keyCode === Keys.ENTER) {
+    e.preventDefault();
+    const target = State.focusableElements[State.focusedIndex];
+    if (target) {
+      target.click();
+    }
+  }
 }
 
 function handleVideoControls(keyCode, e) {
@@ -666,6 +777,18 @@ function setupMediaPlayerListeners() {
       DOM.videoProgressBar.style.width = `${percentage}%`;
       DOM.videoCurrentTime.innerText = formatTime(video.currentTime);
       DOM.videoDuration.innerText = formatTime(video.duration);
+      
+      // Save playback progress every 5 seconds (only when watched > 5s and remaining > 15s)
+      if (State.currentVideoItem) {
+        const time = video.currentTime;
+        if (time > 5 && (video.duration - time) > 15) {
+          const lastSaved = parseFloat(video.dataset.lastSavedTime || "0");
+          if (Math.abs(time - lastSaved) >= 5) {
+            localStorage.setItem('fastdrop_resume_' + State.currentVideoItem.relativePath, time.toString());
+            video.dataset.lastSavedTime = time.toString();
+          }
+        }
+      }
     }
   });
 
@@ -674,7 +797,10 @@ function setupMediaPlayerListeners() {
   });
 
   DOM.videoPlayer.addEventListener('ended', () => {
-    log("Video playback completed");
+    console.log("Video playback completed");
+    if (State.currentVideoItem) {
+      localStorage.removeItem('fastdrop_resume_' + State.currentVideoItem.relativePath);
+    }
     goBack();
   });
 

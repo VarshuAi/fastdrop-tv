@@ -25,7 +25,9 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         "jpg" to "image/jpeg",
         "jpeg" to "image/jpeg",
         "png" to "image/png",
-        "webp" to "image/webp"
+        "webp" to "image/webp",
+        "vtt" to "text/vtt",
+        "srt" to "text/vtt"
     )
 
     init {
@@ -86,7 +88,9 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
 
             // Route request
             val parsedUri = URLDecoder.decode(rawUri, "UTF-8")
-            val baseSharedFolder = Environment.getExternalStorageDirectory() // Points to /sdcard
+            
+            // Set base directory to /storage to enable both internal memory and USB OTG access
+            val baseSharedFolder = File("/storage")
 
             when {
                 parsedUri.startsWith("/api/files") -> {
@@ -176,35 +180,74 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         val foldersList = mutableListOf<String>()
         val filesList = mutableListOf<String>()
 
-        val files = targetDirectory.listFiles()
-        if (files != null) {
-            val supportedVideo = listOf("mp4", "mkv", "webm", "avi")
-            val supportedAudio = listOf("mp3", "wav", "m4a")
-            val supportedImage = listOf("jpg", "jpeg", "png", "webp")
-            val allSupported = supportedVideo + supportedAudio + supportedImage
+        // 1. Special case: If path is root (""), cleanly format internal memory and USB OTG
+        if (relativePath.isEmpty()) {
+            val internalStorageDir = Environment.getExternalStorageDirectory()
+            val internalRelativePath = internalStorageDir.absolutePath.substring(baseDir.absolutePath.length).trimStart('/')
+            
+            // Add Internal Storage card
+            foldersList.add(createItemJson("Internal Storage", "folder", internalRelativePath, 0, "--", "", "directory"))
 
-            for (file in files) {
-                if (file.name.startsWith(".")) continue // Ignore hidden files
+            // Add connected USB drives
+            val storageVolumes = baseDir.listFiles()
+            if (storageVolumes != null) {
+                for (volume in storageVolumes) {
+                    if (volume.isDirectory && volume.name != "emulated" && volume.name != "self" && volume.name != "knox") {
+                        val usbRelativePath = volume.absolutePath.substring(baseDir.absolutePath.length).trimStart('/')
+                        try {
+                            if (volume.canRead()) {
+                                foldersList.add(createItemJson("USB Drive (${volume.name})", "folder", usbRelativePath, 0, "--", "", "directory"))
+                            }
+                        } catch (ignored: Exception) {}
+                    }
+                }
+            }
+        } else {
+            // 2. Standard subdirectory browsing
+            val files = targetDirectory.listFiles()
+            if (files != null) {
+                val supportedVideo = listOf("mp4", "mkv", "webm", "avi")
+                val supportedAudio = listOf("mp3", "wav", "m4a")
+                val supportedImage = listOf("jpg", "jpeg", "png", "webp")
+                val allSupported = supportedVideo + supportedAudio + supportedImage
 
-                val relItemPath = file.absolutePath.substring(baseDir.absolutePath.length)
-                    .replace('\\', '/')
-                    .trimStart('/')
+                for (file in files) {
+                    if (file.name.startsWith(".")) continue // Ignore hidden files
 
-                if (file.isDirectory) {
-                    val folderJson = createItemJson(file.name, "folder", relItemPath, 0, "--", "", "directory")
-                    foldersList.add(folderJson)
-                } else if (file.isFile) {
-                    val ext = getExtension(file.name)
-                    if (allSupported.contains(ext)) {
-                        val type = when {
-                            supportedVideo.contains(ext) -> "video"
-                            supportedAudio.contains(ext) -> "audio"
-                            else -> "image"
+                    val relItemPath = file.absolutePath.substring(baseDir.absolutePath.length)
+                        .replace('\\', '/')
+                        .trimStart('/')
+
+                    if (file.isDirectory) {
+                        val folderJson = createItemJson(file.name, "folder", relItemPath, 0, "--", "", "directory")
+                        foldersList.add(folderJson)
+                    } else if (file.isFile) {
+                        val ext = getExtension(file.name)
+                        if (allSupported.contains(ext)) {
+                            val type = when {
+                                supportedVideo.contains(ext) -> "video"
+                                supportedAudio.contains(ext) -> "audio"
+                                else -> "image"
+                            }
+                            
+                            // Check if a subtitle file (.vtt or .srt) exists next to the video
+                            var subtitlePath: String? = null
+                            if (type == "video") {
+                                val baseName = file.absolutePath.substring(0, file.absolutePath.length - ext.length - 1)
+                                val vttFile = File("$baseName.vtt")
+                                val srtFile = File("$baseName.srt")
+                                if (vttFile.exists() && vttFile.isFile) {
+                                    subtitlePath = relItemPath.substring(0, relItemPath.length - ext.length - 1) + ".vtt"
+                                } else if (srtFile.exists() && srtFile.isFile) {
+                                    subtitlePath = relItemPath.substring(0, relItemPath.length - ext.length - 1) + ".srt"
+                                }
+                            }
+
+                            val mime = mimeMap[ext] ?: "application/octet-stream"
+                            val formattedSize = formatBytes(file.length())
+                            val fileJson = createItemJson(file.name, type, relItemPath, file.length(), formattedSize, ".$ext", mime, subtitlePath)
+                            filesList.add(fileJson)
                         }
-                        val mime = mimeMap[ext] ?: "application/octet-stream"
-                        val formattedSize = formatBytes(file.length())
-                        val fileJson = createItemJson(file.name, type, relItemPath, file.length(), formattedSize, ".$ext", mime)
-                        filesList.add(fileJson)
                     }
                 }
             }
@@ -243,6 +286,28 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         if (!targetFile.exists() || !targetFile.isFile) {
             sendErrorResponse(out, 404, "File Not Found")
             return
+        }
+
+        // Convert SRT to WebVTT on-the-fly for Tizen player compatibility
+        if (targetFile.name.lowercase(Locale.ENGLISH).endsWith(".srt")) {
+            try {
+                var content = targetFile.readText(Charsets.UTF_8)
+                content = "WEBVTT\n\n" + content.replace(Regex("(\\d{2}:\\d{2}:\\d{2}),(\\d{3})"), "$1.$2")
+                val responseBytes = content.toByteArray(Charsets.UTF_8)
+                
+                out.write("HTTP/1.1 200 OK\r\n".toByteArray())
+                out.write("Content-Type: text/vtt\r\n".toByteArray())
+                out.write("Content-Length: ${responseBytes.size}\r\n".toByteArray())
+                out.write("Access-Control-Allow-Origin: *\r\n".toByteArray())
+                out.write("Connection: close\r\n\r\n".toByteArray())
+                out.write(responseBytes)
+                out.flush()
+                return
+            } catch (e: Exception) {
+                Log.e(tag, "SRT subtitle conversion failed: ${e.message}")
+                sendErrorResponse(out, 500, "Subtitle conversion failed")
+                return
+            }
         }
 
         val fileSize = targetFile.length()
@@ -395,10 +460,11 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         return String.format(Locale.ENGLISH, "%.2f %s", bytes / Math.pow(k.toDouble(), i.toDouble()), sizes[i])
     }
 
-    private fun createItemJson(name: String, type: String, relPath: String, size: Long, formattedSize: String, ext: String, mime: String): String {
+    private fun createItemJson(name: String, type: String, relPath: String, size: Long, formattedSize: String, ext: String, mime: String, subtitlePath: String? = null): String {
         val cleanName = escapeJsonString(name)
         val cleanPath = escapeJsonString(relPath)
-        return "{\"name\":\"$cleanName\",\"type\":\"$type\",\"relativePath\":\"$cleanPath\",\"size\":$size,\"sizeFormatted\":\"$formattedSize\",\"extension\":\"$ext\",\"mimeType\":\"$mime\"}"
+        val subPathPart = if (subtitlePath != null) ",\"subtitlePath\":\"${escapeJsonString(subtitlePath)}\"" else ""
+        return "{\"name\":\"$cleanName\",\"type\":\"$type\",\"relativePath\":\"$cleanPath\",\"size\":$size,\"sizeFormatted\":\"$formattedSize\",\"extension\":\"$ext\",\"mimeType\":\"$mime\"$subPathPart}"
     }
 
     private fun escapeJsonString(str: String): String {

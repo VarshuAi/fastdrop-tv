@@ -31,7 +31,10 @@ const MIME_TYPES_FALLBACK = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
-  '.webp': 'image/webp'
+  '.webp': 'image/webp',
+  // Subtitles
+  '.vtt': 'text/vtt',
+  '.srt': 'text/vtt'
 };
 
 function getMimeType(filePath) {
@@ -228,7 +231,20 @@ app.get('/api/files', (req, res) => {
           // Filter to include only supported media types
           if (allSupported.includes(ext)) {
             let mediaType = 'file';
-            if (supportedVideo.includes(ext)) mediaType = 'video';
+            let subtitlePath = null;
+
+            if (supportedVideo.includes(ext)) {
+              mediaType = 'video';
+              // Check if a subtitle file (.vtt or .srt) exists next to this video file
+              const vttPath = itemPath.slice(0, -ext.length) + '.vtt';
+              const srtPath = itemPath.slice(0, -ext.length) + '.srt';
+              
+              if (fs.existsSync(vttPath)) {
+                subtitlePath = relativeItemPath.slice(0, -ext.length) + '.vtt';
+              } else if (fs.existsSync(srtPath)) {
+                subtitlePath = relativeItemPath.slice(0, -ext.length) + '.srt';
+              }
+            }
             else if (supportedAudio.includes(ext)) mediaType = 'audio';
             else if (supportedImage.includes(ext)) mediaType = 'image';
 
@@ -239,7 +255,8 @@ app.get('/api/files', (req, res) => {
               size: itemStats.size,
               sizeFormatted: formatBytes(itemStats.size),
               extension: ext,
-              mimeType: getMimeType(itemPath)
+              mimeType: getMimeType(itemPath),
+              subtitlePath: subtitlePath
             });
           }
         }
@@ -283,6 +300,22 @@ app.get('/stream', (req, res) => {
     const stat = fs.statSync(filePath);
     if (!stat.isFile()) {
       return res.status(400).send('Path is a directory');
+    }
+
+    // Convert SRT to WebVTT on-the-fly for Tizen player compatibility
+    if (filePath.toLowerCase().endsWith('.srt')) {
+      try {
+        let content = fs.readFileSync(filePath, 'utf8');
+        content = 'WEBVTT\n\n' + content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+        res.writeHead(200, {
+          'Content-Type': 'text/vtt',
+          'Access-Control-Allow-Origin': '*'
+        });
+        return res.end(content);
+      } catch (err) {
+        log(`SRT Subtitle Conversion Error: ${err.message}`);
+        return res.status(500).send('Subtitle conversion failed');
+      }
     }
 
     const fileSize = stat.size;

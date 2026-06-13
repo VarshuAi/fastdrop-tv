@@ -28,7 +28,7 @@
             <input type="text" id="ip-input" class="focusable" placeholder="e.g. 192.168.1.8" value="" tabindex="1">
             <span class="port-label">:8080</span>
           </div>
-          <small class="help-text">Ensure your laptop and TV are on the same Wi-Fi network.</small>
+          <small class="help-text">Ensure your phone/laptop and TV are on the same Wi-Fi network.</small>
         </div>
 
         <button id="connect-btn" class="btn focusable" tabindex="2">Connect Server</button>
@@ -36,9 +36,9 @@
         <div class="instructions">
           <h3>How to start:</h3>
           <ol>
-            <li>Run the FastDrop TV server on your Windows PC.</li>
-            <li>Look at the IP addresses printed in the server command line.</li>
-            <li>Enter that IP above and select Connect.</li>
+            <li>Start the FastDrop Server on your Phone or PC.</li>
+            <li>Connect your TV to the same Wi-Fi network (or your phone's hotspot).</li>
+            <li>Enter the IP address shown in the server app above and select Connect.</li>
           </ol>
         </div>
       </div>
@@ -77,6 +77,8 @@
     <!-- SCREEN 3: Video Player Overlay -->
     <div id="video-screen" class="screen player-screen">
       <video id="video-player" class="player-element" preload="auto">
+        <!-- Subtitle track element dynamically loaded by JavaScript -->
+        <track id="video-subtitle-track" kind="subtitles" srclang="en" label="English" default>
         Your TV does not support HTML5 video streaming.
       </video>
       
@@ -94,7 +96,7 @@
             <span id="video-duration">00:00</span>
           </div>
           <div class="osd-buttons-row">
-            <span class="osd-hint">Press <span class="key-badge">ENTER</span> to Play/Pause &bull; Press <span class="key-badge">BACK</span> to Exit</span>
+            <span class="osd-hint">Press <span class="key-badge">ENTER</span> to Play/Pause &bull; Press <span class="key-badge">◀ ▶</span> to Seek &bull; Press <span class="key-badge">BACK</span> to Exit</span>
           </div>
         </div>
       </div>
@@ -129,6 +131,19 @@
 
         <div class="audio-hints">
           Press <span class="key-badge">ENTER</span> to Play/Pause <br> Press <span class="key-badge">BACK</span> to return to files
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 6: Resume Playback Dialog (Glassmorphic Overlay) -->
+    <div id="resume-dialog" class="dialog-overlay hidden">
+      <div class="glass-card dialog-card">
+        <div class="dialog-icon">⏳</div>
+        <h2>Resume Playing?</h2>
+        <p>Would you like to resume this video from <span id="resume-time-label" style="color: #0084ff; font-weight: 700; font-family: monospace;">00:00</span>?</p>
+        <div class="dialog-buttons">
+          <button id="resume-yes-btn" class="btn focusable" tabindex="10">Resume</button>
+          <button id="resume-no-btn" class="btn focusable" tabindex="11">Start Over</button>
         </div>
       </div>
     </div>
