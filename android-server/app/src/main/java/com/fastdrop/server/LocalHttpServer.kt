@@ -1,5 +1,6 @@
 package com.fastdrop.server
 
+import android.content.res.AssetManager
 import android.os.Environment
 import android.util.Log
 import java.io.*
@@ -8,7 +9,7 @@ import java.net.Socket
 import java.net.URLDecoder
 import java.util.*
 
-class LocalHttpServer(private val port: Int) : Thread() {
+class LocalHttpServer(private val port: Int, private val assetManager: AssetManager) : Thread() {
     private val tag = "LocalHttpServer"
     private var serverSocket: ServerSocket? = null
     @Volatile private var isRunning = true
@@ -94,6 +95,9 @@ class LocalHttpServer(private val port: Int) : Thread() {
                 parsedUri.startsWith("/stream") -> {
                     handleStreamRequest(out, parsedUri, rangeHeader, baseSharedFolder)
                 }
+                parsedUri.startsWith("/client") -> {
+                    handleAssetRequest(out, parsedUri)
+                }
                 parsedUri == "/" -> {
                     sendDashboardResponse(out)
                 }
@@ -112,6 +116,43 @@ class LocalHttpServer(private val port: Int) : Thread() {
                 out.close()
                 client.close()
             } catch (ignored: Exception) {}
+        }
+    }
+
+    // Endpoint: GET /client/... (Serves TV client files bundled inside the APK assets)
+    private fun handleAssetRequest(out: BufferedOutputStream, uri: String) {
+        // Remove query parameters if present
+        val cleanUri = uri.split("?")[0].trimStart('/')
+        try {
+            val inputStream = assetManager.open(cleanUri)
+            val ext = getExtension(cleanUri)
+            val mime = when (ext) {
+                "html" -> "text/html"
+                "css" -> "text/css"
+                "js" -> "application/javascript"
+                "png" -> "image/png"
+                "jpg", "jpeg" -> "image/jpeg"
+                "webp" -> "image/webp"
+                else -> "application/octet-stream"
+            }
+
+            val size = inputStream.available().toLong()
+            out.write("HTTP/1.1 200 OK\r\n".toByteArray())
+            out.write("Content-Type: $mime\r\n".toByteArray())
+            out.write("Content-Length: $size\r\n".toByteArray())
+            out.write("Connection: close\r\n\r\n".toByteArray())
+
+            val buffer = ByteArray(8192)
+            while (true) {
+                val read = inputStream.read(buffer)
+                if (read == -1) break
+                out.write(buffer, 0, read)
+            }
+            out.flush()
+            inputStream.close()
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to load asset $cleanUri: ${e.message}")
+            sendErrorResponse(out, 404, "Asset Not Found")
         }
     }
 

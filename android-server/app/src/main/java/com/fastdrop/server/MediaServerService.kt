@@ -67,9 +67,9 @@ class MediaServerService : Service() {
             acquire()
         }
 
-        // 6. Start Server Thread
+        // 6. Start Server Thread (Passing our Context Assets to serve TV app pages)
         if (server == null) {
-            server = LocalHttpServer(8080)
+            server = LocalHttpServer(8080, assets)
             server?.start()
             Log.d(tag, "Local HTTP Server started on port 8080")
         }
