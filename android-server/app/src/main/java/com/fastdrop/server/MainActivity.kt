@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var tvStatusValue: TextView
     private lateinit var tvIpValue: TextView
+    private lateinit var tvTvLinkValue: TextView
     private lateinit var btnToggleServer: MaterialButton
 
     private val notificationPermissionCode = 202
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
 
         tvStatusValue = findViewById(R.id.tvStatusValue)
         tvIpValue = findViewById(R.id.tvIpValue)
+        tvTvLinkValue = findViewById(R.id.tvTvLinkValue)
         btnToggleServer = findViewById(R.id.btnToggleServer)
 
         btnToggleServer.setOnClickListener {
@@ -52,8 +54,10 @@ class MainActivity : AppCompatActivity() {
         val ip = getLocalIpAddress()
         if (ip != null) {
             tvIpValue.text = "http://$ip:8080"
+            tvTvLinkValue.text = "http://$ip:8080/client/index.html"
         } else {
             tvIpValue.text = "Connect to Hotspot/Wi-Fi"
+            tvTvLinkValue.text = "Connect to Hotspot/Wi-Fi"
         }
     }
 
@@ -103,12 +107,15 @@ class MainActivity : AppCompatActivity() {
             val ip = getLocalIpAddress()
             if (ip != null) {
                 tvIpValue.text = "http://$ip:8080"
+                tvTvLinkValue.text = "http://$ip:8080/client/index.html"
             }
         } else {
             tvStatusValue.text = "STOPPED"
             tvStatusValue.setTextColor(Color.parseColor("#ef4444")) // Red
             btnToggleServer.text = "Start Server"
-            btnToggleServer.setBackgroundColor(Color.parseColor("#0084ff")) // Blue
+            btnToggleServer.setBackgroundColor(Color.parseColor("#d4af37")) // Gold
+            tvIpValue.text = "http://---.---.---.---:8080"
+            tvTvLinkValue.text = "http://---.---.---.---:8080/client/index.html"
         }
     }
 
