@@ -34,7 +34,9 @@ const MIME_TYPES_FALLBACK = {
   '.webp': 'image/webp',
   // Subtitles
   '.vtt': 'text/vtt',
-  '.srt': 'text/vtt'
+  '.srt': 'text/vtt',
+  // PDF
+  '.pdf': 'application/pdf'
 };
 
 function getMimeType(filePath) {
@@ -203,7 +205,8 @@ app.get('/api/files', (req, res) => {
     const supportedVideo = ['.mp4', '.mkv', '.webm', '.avi'];
     const supportedAudio = ['.mp3', '.wav', '.m4a'];
     const supportedImage = ['.jpg', '.jpeg', '.png', '.webp'];
-    const allSupported = [...supportedVideo, ...supportedAudio, ...supportedImage];
+    const supportedPdf = ['.pdf'];
+    const allSupported = [...supportedVideo, ...supportedAudio, ...supportedImage, ...supportedPdf];
 
     // First pass: scan for video files and identify matching poster images
     const detectedPosters = new Set();
@@ -282,6 +285,7 @@ app.get('/api/files', (req, res) => {
             }
             else if (supportedAudio.includes(ext)) mediaType = 'audio';
             else if (supportedImage.includes(ext)) mediaType = 'image';
+            else if (supportedPdf.includes(ext)) mediaType = 'pdf';
 
             files.push({
               name: item,

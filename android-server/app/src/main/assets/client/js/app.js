@@ -26,6 +26,12 @@ const State = {
   subSize: localStorage.getItem('fastdrop_sub_size') || 'medium',
   subColor: localStorage.getItem('fastdrop_sub_color') || 'white',
   isVideoSettingsActive: false,
+  isAudioMinimized: false,
+  isShuffle: false,
+  repeatMode: 'none', // 'none' | 'one' | 'all'
+  currentPdfDoc: null,
+  currentPdfPage: 1,
+  totalPdfPages: 1
 };
 
 // DOM Cache
@@ -80,7 +86,27 @@ const DOM = {
   
   // Toast Notification
   toast: document.getElementById('toast-notification'),
-  toastMessage: document.getElementById('toast-message')
+  toastMessage: document.getElementById('toast-message'),
+
+  // PDF Screen Elements
+  pdfScreen: document.getElementById('pdf-screen'),
+  pdfCanvas: document.getElementById('pdf-canvas'),
+  pdfPrevBtn: document.getElementById('pdf-prev-btn'),
+  pdfNextBtn: document.getElementById('pdf-next-btn'),
+  pdfPageNumDisplay: document.getElementById('pdf-page-num-display'),
+  pdfLoading: document.getElementById('pdf-loading'),
+
+  // Mini-Player Elements
+  miniPlayer: document.getElementById('mini-player'),
+  miniPlayerTitle: document.getElementById('mini-player-title'),
+  miniPlayerProgressFill: document.getElementById('mini-player-progress-fill'),
+
+  // Audio Buttons Cache
+  audioPrevBtn: document.getElementById('audio-prev-btn'),
+  audioPlayBtn: document.getElementById('audio-play-btn'),
+  audioNextBtn: document.getElementById('audio-next-btn'),
+  audioShuffleBtn: document.getElementById('audio-shuffle-btn'),
+  audioRepeatBtn: document.getElementById('audio-repeat-btn')
 };
 
 // ----------------------------------------------------
@@ -142,6 +168,10 @@ function initApp() {
   
   // Set up subtitle OSD settings listeners
   setupSubtitleSettingsListeners();
+
+  // Set up Audio Controls and PDF viewer buttons listeners
+  setupAudioControlsListeners();
+  setupPdfControlsListeners();
 
   // Set up resume dialog button listeners
   if (DOM.resumeYesBtn && DOM.resumeNoBtn) {
@@ -226,6 +256,8 @@ function handleKeyDown(e) {
     e.preventDefault();
     if (State.currentScreen === 'video-screen' && State.isVideoSettingsActive) {
       exitVideoSettings();
+    } else if (State.isAudioMinimized) {
+      maximizeAudioPlayer();
     } else {
       goBack();
     }
@@ -248,6 +280,9 @@ function handleKeyDown(e) {
       break;
     case 'image-screen':
       handleImageControls(keyCode, e);
+      break;
+    case 'pdf-screen':
+      handlePdfControls(keyCode, e);
       break;
     case 'resume-dialog':
       handleResumeDialogNavigation(keyCode, e);
@@ -371,8 +406,28 @@ function goBack() {
       focusElement(0); // Focus IP input
     }
   } 
+  else if (State.currentScreen === 'audio-screen') {
+    if (!DOM.audioPlayer.paused) {
+      minimizeAudioPlayer();
+    } else {
+      stopAllMedia();
+      switchScreen('browser-screen');
+      updateFocusableList();
+      focusElement(State.lastGridFocusedIndex || 0);
+    }
+  }
+  else if (State.currentScreen === 'pdf-screen') {
+    // Cleanup PDF resources to prevent memory leaks
+    if (State.currentPdfDoc) {
+      State.currentPdfDoc.destroy();
+      State.currentPdfDoc = null;
+    }
+    switchScreen('browser-screen');
+    updateFocusableList();
+    focusElement(State.lastGridFocusedIndex || 0);
+  }
   else {
-    // We are in a media player (video, audio, or image), close it and return to file browser
+    // We are in a media player (video or image), close it and return to file browser
     stopAllMedia();
     switchScreen('browser-screen');
     // Restore focus back to the item that opened it
@@ -529,6 +584,8 @@ function renderFiles(items) {
         svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
       } else if (item.type === 'image') {
         svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+      } else if (item.type === 'pdf') {
+        svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg>`;
       } else {
         svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
       }
@@ -572,6 +629,8 @@ function handleItemSelection(item) {
     viewImage(item);
   } else if (item.type === 'audio') {
     playAudio(item);
+  } else if (item.type === 'pdf') {
+    playPdf(item);
   } else {
     showToast("Unsupported file type");
   }
@@ -883,6 +942,10 @@ function stopSlideshow() {
 // PLAYBACK: AUDIO PLAYER
 // ----------------------------------------------------
 function playAudio(item) {
+  // Reset minimize status when entering full audio player
+  State.isAudioMinimized = false;
+  if (DOM.miniPlayer) DOM.miniPlayer.classList.add('hidden');
+
   // Populate audioItems playlist from current folder list
   State.audioItems = State.files.filter(f => f.type === 'audio');
   State.currentAudioIndex = State.audioItems.findIndex(f => f.relativePath === item.relativePath);
@@ -894,10 +957,16 @@ function playAudio(item) {
   
   switchScreen('audio-screen');
   
+  // Set up layout states
+  updateAudioControlsState();
+  updateFocusableList();
+  focusElement(1); // Default focus on play/pause button (index 1)
+  
   DOM.audioPlayer.load();
   DOM.audioPlayer.play()
     .then(() => {
       DOM.audioStatusText.innerText = "Playing";
+      updateAudioControlsState();
     })
     .catch(err => {
       console.error("Audio playback error: ", err);
@@ -908,34 +977,43 @@ function playAudio(item) {
 
 function handleAudioControls(keyCode, e) {
   const audio = DOM.audioPlayer;
-  
-  if (keyCode === Keys.ENTER || keyCode === Keys.SPACE || keyCode === Keys.PLAYPAUSE) {
+  const total = State.focusableElements.length;
+
+  if (keyCode === Keys.LEFT) {
     e.preventDefault();
-    if (audio.paused) {
-      audio.play();
-      DOM.audioStatusText.innerText = "Playing";
-    } else {
-      audio.pause();
-      DOM.audioStatusText.innerText = "Paused";
+    const nextIndex = State.focusedIndex > 0 ? State.focusedIndex - 1 : total - 1;
+    focusElement(nextIndex);
+  }
+  else if (keyCode === Keys.RIGHT) {
+    e.preventDefault();
+    const nextIndex = State.focusedIndex < total - 1 ? State.focusedIndex + 1 : 0;
+    focusElement(nextIndex);
+  }
+  else if (keyCode === Keys.ENTER) {
+    e.preventDefault();
+    const target = State.focusableElements[State.focusedIndex];
+    if (target) {
+      target.click();
     }
   }
-  else if (keyCode === Keys.PLAY) {
+  else if (keyCode === Keys.UP || keyCode === Keys.DOWN) {
     e.preventDefault();
-    audio.play();
-    DOM.audioStatusText.innerText = "Playing";
+    // Allow up/down keys to seek (UP fast forward, DOWN rewind)
+    if (keyCode === Keys.UP) {
+      audio.currentTime = Math.min(audio.currentTime + 10, audio.duration || 0);
+    } else {
+      audio.currentTime = Math.max(audio.currentTime - 10, 0);
+    }
+  }
+  else if (keyCode === Keys.PLAY || keyCode === Keys.PLAYPAUSE) {
+    e.preventDefault();
+    toggleAudioPlayback();
   }
   else if (keyCode === Keys.PAUSE) {
     e.preventDefault();
     audio.pause();
     DOM.audioStatusText.innerText = "Paused";
-  }
-  else if (keyCode === Keys.RIGHT) {
-    e.preventDefault();
-    audio.currentTime = Math.min(audio.currentTime + 10, audio.duration || 0);
-  }
-  else if (keyCode === Keys.LEFT) {
-    e.preventDefault();
-    audio.currentTime = Math.max(audio.currentTime - 10, 0);
+    updateAudioControlsState();
   }
 }
 
@@ -992,6 +1070,9 @@ function setupMediaPlayerListeners() {
       DOM.audioProgressBar.style.width = `${percentage}%`;
       DOM.audioCurrentTime.innerText = formatTime(audio.currentTime);
       DOM.audioDuration.innerText = formatTime(audio.duration);
+      
+      // Update mini player progress if minimized
+      updateMiniPlayerProgress();
     }
   });
 
@@ -1001,14 +1082,27 @@ function setupMediaPlayerListeners() {
 
   DOM.audioPlayer.addEventListener('ended', () => {
     console.log("Audio track completed");
-    // Auto-play next audio track in playlist if available
-    const nextIndex = State.currentAudioIndex + 1;
-    if (State.audioItems && nextIndex < State.audioItems.length) {
-      State.currentAudioIndex = nextIndex;
-      playAudio(State.audioItems[nextIndex]);
+    
+    if (State.repeatMode === 'one') {
+      playAudio(State.audioItems[State.currentAudioIndex]);
     } else {
-      DOM.audioStatusText.innerText = "Completed";
-      goBack();
+      let nextIndex = -1;
+      if (State.isShuffle) {
+        nextIndex = Math.floor(Math.random() * State.audioItems.length);
+      } else {
+        nextIndex = State.currentAudioIndex + 1;
+      }
+      
+      if (nextIndex >= 0 && nextIndex < State.audioItems.length) {
+        State.currentAudioIndex = nextIndex;
+        playAudio(State.audioItems[nextIndex]);
+      } else if (State.repeatMode === 'all' && State.audioItems.length > 0) {
+        State.currentAudioIndex = 0;
+        playAudio(State.audioItems[0]);
+      } else {
+        DOM.audioStatusText.innerText = "Completed";
+        goBack();
+      }
     }
   });
 
@@ -1029,6 +1123,10 @@ function stopAllMedia() {
   // Stop slideshow timer if active
   stopSlideshow();
   
+  // Reset Mini-Player state
+  State.isAudioMinimized = false;
+  if (DOM.miniPlayer) DOM.miniPlayer.classList.add('hidden');
+  
   // Reset Video
   DOM.videoPlayer.pause();
   DOM.videoPlayer.removeAttribute('src'); // Completely unload source to free up TV RAM
@@ -1043,6 +1141,12 @@ function stopAllMedia() {
   
   // Reset Image
   DOM.imageViewer.removeAttribute('src');
+
+  // Reset PDF
+  if (State.currentPdfDoc) {
+    State.currentPdfDoc.destroy();
+    State.currentPdfDoc = null;
+  }
 }
 
 // ----------------------------------------------------
@@ -1160,4 +1264,281 @@ function cycleSubtitleColor() {
   localStorage.setItem('fastdrop_sub_color', State.subColor);
   applySubtitleStyles();
   showToast(`Subtitle Color: ${State.subColor.toUpperCase()}`, 1500);
+}
+
+// Audio Controls row and PDF viewer helper functions
+function setupAudioControlsListeners() {
+  if (DOM.audioPrevBtn) {
+    DOM.audioPrevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playPreviousAudio();
+    });
+  }
+  if (DOM.audioPlayBtn) {
+    DOM.audioPlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAudioPlayback();
+    });
+  }
+  if (DOM.audioNextBtn) {
+    DOM.audioNextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playNextAudio();
+    });
+  }
+  if (DOM.audioShuffleBtn) {
+    DOM.audioShuffleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleShuffle();
+    });
+  }
+  if (DOM.audioRepeatBtn) {
+    DOM.audioRepeatBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cycleRepeatMode();
+    });
+  }
+}
+
+function setupPdfControlsListeners() {
+  if (DOM.pdfPrevBtn) {
+    DOM.pdfPrevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigatePdfPage(-1);
+    });
+  }
+  if (DOM.pdfNextBtn) {
+    DOM.pdfNextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigatePdfPage(1);
+    });
+  }
+}
+
+function playPreviousAudio() {
+  if (State.audioItems.length === 0) return;
+  let prevIndex = State.currentAudioIndex - 1;
+  if (prevIndex < 0) {
+    prevIndex = State.audioItems.length - 1;
+  }
+  State.currentAudioIndex = prevIndex;
+  playAudio(State.audioItems[prevIndex]);
+}
+
+function playNextAudio() {
+  if (State.audioItems.length === 0) return;
+  let nextIndex = State.currentAudioIndex + 1;
+  if (nextIndex >= State.audioItems.length) {
+    nextIndex = 0;
+  }
+  State.currentAudioIndex = nextIndex;
+  playAudio(State.audioItems[nextIndex]);
+}
+
+function toggleShuffle() {
+  State.isShuffle = !State.isShuffle;
+  updateAudioControlsState();
+  showToast(`Shuffle: ${State.isShuffle ? 'ON' : 'OFF'}`, 1500);
+}
+
+function cycleRepeatMode() {
+  const modes = ['none', 'one', 'all'];
+  let idx = modes.indexOf(State.repeatMode);
+  idx = (idx + 1) % modes.length;
+  State.repeatMode = modes[idx];
+  updateAudioControlsState();
+  
+  const labels = { 'none': 'Off', 'one': 'Repeat One', 'all': 'Repeat All' };
+  showToast(`Repeat Mode: ${labels[State.repeatMode]}`, 1500);
+}
+
+function toggleAudioPlayback() {
+  const audio = DOM.audioPlayer;
+  if (audio.paused) {
+    audio.play()
+      .then(() => {
+        DOM.audioStatusText.innerText = "Playing";
+        updateAudioControlsState();
+      });
+  } else {
+    audio.pause();
+    DOM.audioStatusText.innerText = "Paused";
+    updateAudioControlsState();
+  }
+}
+
+function updateAudioControlsState() {
+  if (DOM.audioShuffleBtn) {
+    if (State.isShuffle) {
+      DOM.audioShuffleBtn.classList.add('active-mode');
+      DOM.audioShuffleBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: middle;"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>Shuffle: On`;
+    } else {
+      DOM.audioShuffleBtn.classList.remove('active-mode');
+      DOM.audioShuffleBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: middle;"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>Shuffle: Off`;
+    }
+  }
+  
+  if (DOM.audioRepeatBtn) {
+    if (State.repeatMode !== 'none') {
+      DOM.audioRepeatBtn.classList.add('active-mode');
+    } else {
+      DOM.audioRepeatBtn.classList.remove('active-mode');
+    }
+    
+    const repeatLabels = { 'none': 'Off', 'one': 'One', 'all': 'All' };
+    DOM.audioRepeatBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: middle;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Repeat: ${repeatLabels[State.repeatMode]}`;
+  }
+  
+  if (DOM.audioPlayBtn) {
+    const isPlaying = !DOM.audioPlayer.paused;
+    if (isPlaying) {
+      DOM.audioPlayBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+    } else {
+      DOM.audioPlayBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+    }
+  }
+}
+
+function minimizeAudioPlayer() {
+  State.isAudioMinimized = true;
+  if (DOM.miniPlayer) {
+    DOM.miniPlayer.classList.remove('hidden');
+    DOM.miniPlayerTitle.innerText = State.audioItems[State.currentAudioIndex].name;
+    updateMiniPlayerProgress();
+  }
+  
+  switchScreen('browser-screen');
+  updateFocusableList();
+  focusElement(State.lastGridFocusedIndex || 0);
+}
+
+function maximizeAudioPlayer() {
+  State.isAudioMinimized = false;
+  if (DOM.miniPlayer) DOM.miniPlayer.classList.add('hidden');
+  switchScreen('audio-screen');
+  updateFocusableList();
+  focusElement(1); // Play/Pause button
+}
+
+function updateMiniPlayerProgress() {
+  const audio = DOM.audioPlayer;
+  if (audio.duration && State.isAudioMinimized && DOM.miniPlayerProgressFill) {
+    const percentage = (audio.currentTime / audio.duration) * 100;
+    DOM.miniPlayerProgressFill.style.width = `${percentage}%`;
+  }
+}
+
+// PDF.js Page-by-Page Rendering Engine
+function playPdf(item) {
+  State.lastGridFocusedIndex = State.focusedIndex;
+  switchScreen('pdf-screen');
+  showPdfLoading(true);
+  
+  const pdfUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/lib/pdf.worker.min.js';
+  
+  pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
+    State.currentPdfDoc = pdf;
+    State.currentPdfPage = 1;
+    State.totalPdfPages = pdf.numPages;
+    if (DOM.pdfPageNumDisplay) {
+      DOM.pdfPageNumDisplay.innerText = `Page 1 / ${pdf.numPages}`;
+    }
+    renderPdfPage(1);
+  }).catch(err => {
+    console.error("Failed to load PDF:", err);
+    showToast("Failed to load PDF file");
+    goBack();
+  });
+}
+
+let pdfRenderTask = null;
+function renderPdfPage(pageNum) {
+  if (!State.currentPdfDoc) return;
+  showPdfLoading(true);
+  
+  State.currentPdfDoc.getPage(pageNum).then(page => {
+    const canvas = DOM.pdfCanvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    // Scale at 1.5 to balance 4K text readability and memory/lag limits
+    const viewport = page.getViewport({ scale: 1.5 });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport
+    };
+    
+    if (pdfRenderTask) {
+      pdfRenderTask.cancel();
+    }
+    
+    pdfRenderTask = page.render(renderContext);
+    pdfRenderTask.promise.then(() => {
+      showPdfLoading(false);
+      if (DOM.pdfPageNumDisplay) {
+        DOM.pdfPageNumDisplay.innerText = `Page ${pageNum} / ${State.totalPdfPages}`;
+      }
+      updateFocusableList();
+      focusElement(0); // Focus Prev button
+      page.cleanup(); // Clean up graphics resources immediately to prevent lag
+    }).catch(err => {
+      if (err.name !== 'RenderingCancelledException') {
+        console.error("Page render failed:", err);
+        showPdfLoading(false);
+      }
+    });
+  });
+}
+
+function showPdfLoading(isLoading) {
+  if (DOM.pdfLoading) {
+    if (isLoading) DOM.pdfLoading.classList.remove('hidden');
+    else DOM.pdfLoading.classList.add('hidden');
+  }
+}
+
+function handlePdfControls(keyCode, e) {
+  const total = State.focusableElements.length;
+  if (keyCode === Keys.LEFT) {
+    e.preventDefault();
+    if (State.focusedIndex === 0) {
+      navigatePdfPage(-1);
+    } else {
+      focusElement(0);
+    }
+  } else if (keyCode === Keys.RIGHT) {
+    e.preventDefault();
+    if (State.focusedIndex === 1) {
+      navigatePdfPage(1);
+    } else {
+      focusElement(1);
+    }
+  } else if (keyCode === Keys.ENTER) {
+    e.preventDefault();
+    const target = State.focusableElements[State.focusedIndex];
+    if (target) {
+      target.click();
+    }
+  } else if (keyCode === Keys.UP || keyCode === Keys.DOWN) {
+    e.preventDefault();
+    // Scroll page view if scrollable
+    const wrapper = document.querySelector('.pdf-viewer-container');
+    if (wrapper) {
+      const scrollAmt = keyCode === Keys.UP ? -60 : 60;
+      wrapper.scrollTop += scrollAmt;
+    }
+  }
+}
+
+function navigatePdfPage(direction) {
+  if (!State.currentPdfDoc) return;
+  const newPage = State.currentPdfPage + direction;
+  if (newPage >= 1 && newPage <= State.totalPdfPages) {
+    State.currentPdfPage = newPage;
+    renderPdfPage(newPage);
+  }
 }

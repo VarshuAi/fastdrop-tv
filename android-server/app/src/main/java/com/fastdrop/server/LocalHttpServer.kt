@@ -27,7 +27,8 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         "png" to "image/png",
         "webp" to "image/webp",
         "vtt" to "text/vtt",
-        "srt" to "text/vtt"
+        "srt" to "text/vtt",
+        "pdf" to "application/pdf"
     )
 
     init {
@@ -209,7 +210,8 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 val supportedVideo = listOf("mp4", "mkv", "webm", "avi")
                 val supportedAudio = listOf("mp3", "wav", "m4a")
                 val supportedImage = listOf("jpg", "jpeg", "png", "webp")
-                val allSupported = supportedVideo + supportedAudio + supportedImage
+                val supportedPdf = listOf("pdf")
+                val allSupported = supportedVideo + supportedAudio + supportedImage + supportedPdf
 
                 val detectedPosters = mutableSetOf<String>()
                 val videoPosters = mutableMapOf<String, String>()
@@ -266,6 +268,7 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                             val type = when {
                                 supportedVideo.contains(ext) -> "video"
                                 supportedAudio.contains(ext) -> "audio"
+                                supportedPdf.contains(ext) -> "pdf"
                                 else -> "image"
                             }
                             
