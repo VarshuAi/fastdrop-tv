@@ -309,7 +309,7 @@ body {
 
 .file-grid-container {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 30px;
   padding-bottom: 50px;
 }
