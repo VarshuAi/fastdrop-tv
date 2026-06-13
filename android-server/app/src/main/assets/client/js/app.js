@@ -17,6 +17,12 @@ const State = {
   isOsdVisible: false,
   currentVideoItem: null,
   lastGridFocusedIndex: 0,
+  audioItems: [],
+  currentAudioIndex: -1,
+  imageItems: [],
+  currentImageIndex: -1,
+  slideshowTimer: null,
+  isSlideshowActive: false,
 };
 
 // DOM Cache
@@ -51,6 +57,7 @@ const DOM = {
   // Image Viewer Elements
   imageViewer: document.getElementById('image-viewer'),
   imageTitle: document.getElementById('image-title'),
+  slideshowIndicator: document.getElementById('slideshow-indicator'),
   
   // Audio Player Elements
   audioPlayer: document.getElementById('audio-player'),
@@ -723,6 +730,18 @@ function showVideoOsd() {
 // PLAYBACK: IMAGE VIEWER
 // ----------------------------------------------------
 function viewImage(item) {
+  // Populate imageItems playlist from current folder list
+  State.imageItems = State.files.filter(f => f.type === 'image');
+  State.currentImageIndex = State.imageItems.findIndex(f => f.relativePath === item.relativePath);
+  
+  // Reset slideshow state on entry
+  stopSlideshow();
+  
+  displayImage(item);
+}
+
+function displayImage(item) {
+  if (!item) return;
   const streamUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
   
   DOM.imageTitle.innerText = item.name;
@@ -732,11 +751,69 @@ function viewImage(item) {
 }
 
 function handleImageControls(keyCode, e) {
-  // Arrow keys can trigger navigating next/previous images in future. 
-  // For now, back button closes, handled globally.
-  if (keyCode === Keys.ENTER) {
+  if (keyCode === Keys.RIGHT) {
     e.preventDefault();
-    goBack(); // Enter on full image goes back
+    stopSlideshow(); // Stop auto-play on manual navigate
+    navigateImage(1);
+  }
+  else if (keyCode === Keys.LEFT) {
+    e.preventDefault();
+    stopSlideshow();
+    navigateImage(-1);
+  }
+  else if (keyCode === Keys.ENTER || keyCode === Keys.SPACE || keyCode === Keys.PLAYPAUSE) {
+    e.preventDefault();
+    toggleSlideshow();
+  }
+}
+
+function navigateImage(direction) {
+  if (!State.imageItems || State.imageItems.length === 0) return;
+  
+  let nextIndex = State.currentImageIndex + direction;
+  if (nextIndex >= State.imageItems.length) {
+    nextIndex = 0; // Wrap around to start
+  } else if (nextIndex < 0) {
+    nextIndex = State.imageItems.length - 1; // Wrap around to end
+  }
+  
+  State.currentImageIndex = nextIndex;
+  displayImage(State.imageItems[nextIndex]);
+}
+
+function toggleSlideshow() {
+  if (State.isSlideshowActive) {
+    stopSlideshow();
+    showToast("Slideshow Paused", 1500);
+  } else {
+    startSlideshow();
+    showToast("Slideshow Started (5s interval)", 1500);
+  }
+}
+
+function startSlideshow() {
+  State.isSlideshowActive = true;
+  if (DOM.slideshowIndicator) {
+    DOM.slideshowIndicator.classList.remove('hidden');
+  }
+  
+  if (State.slideshowTimer) {
+    clearInterval(State.slideshowTimer);
+  }
+  
+  State.slideshowTimer = setInterval(() => {
+    navigateImage(1);
+  }, 5000);
+}
+
+function stopSlideshow() {
+  State.isSlideshowActive = false;
+  if (DOM.slideshowIndicator) {
+    DOM.slideshowIndicator.classList.add('hidden');
+  }
+  if (State.slideshowTimer) {
+    clearInterval(State.slideshowTimer);
+    State.slideshowTimer = null;
   }
 }
 
@@ -744,6 +821,10 @@ function handleImageControls(keyCode, e) {
 // PLAYBACK: AUDIO PLAYER
 // ----------------------------------------------------
 function playAudio(item) {
+  // Populate audioItems playlist from current folder list
+  State.audioItems = State.files.filter(f => f.type === 'audio');
+  State.currentAudioIndex = State.audioItems.findIndex(f => f.relativePath === item.relativePath);
+
   const streamUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
   
   DOM.audioTitle.innerText = item.name;
@@ -857,8 +938,16 @@ function setupMediaPlayerListeners() {
   });
 
   DOM.audioPlayer.addEventListener('ended', () => {
-    DOM.audioStatusText.innerText = "Completed";
-    goBack();
+    console.log("Audio track completed");
+    // Auto-play next audio track in playlist if available
+    const nextIndex = State.currentAudioIndex + 1;
+    if (State.audioItems && nextIndex < State.audioItems.length) {
+      State.currentAudioIndex = nextIndex;
+      playAudio(State.audioItems[nextIndex]);
+    } else {
+      DOM.audioStatusText.innerText = "Completed";
+      goBack();
+    }
   });
 
   DOM.audioPlayer.addEventListener('error', () => {
@@ -872,6 +961,8 @@ function stopAllMedia() {
   if (State.osdTimer) {
     clearTimeout(State.osdTimer);
   }
+  // Stop slideshow timer if active
+  stopSlideshow();
   
   // Reset Video
   DOM.videoPlayer.pause();

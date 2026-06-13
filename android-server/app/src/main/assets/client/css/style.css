@@ -867,3 +867,25 @@ body {
   0% { width: 0%; }
   100% { width: 100%; }
 }
+
+/* Slideshow Indicator Overlay */
+.slideshow-indicator {
+  position: absolute;
+  top: 50px;
+  right: 50px;
+  background: rgba(28, 20, 12, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid var(--panel-border);
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-size: 16px;
+  color: var(--accent-color);
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 15px rgba(212, 175, 55, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1200;
+  transition: all 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
