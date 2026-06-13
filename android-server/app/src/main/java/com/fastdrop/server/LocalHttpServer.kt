@@ -174,7 +174,7 @@ class LocalHttpServer(private val port: Int) : Thread() {
         filesList.sort()
 
         val mergedList = foldersList + filesList
-        val jsonArrayString = mergedList.joinToString(separator = ",", prefix = "[", suffix = "]")
+        val jsonArrayString = mergedList.joinToString(separator = ",", prefix = "[", postfix = "]")
 
         val responseBytes = jsonArrayString.toByteArray(Charsets.UTF_8)
         
