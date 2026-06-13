@@ -489,7 +489,7 @@ function renderFiles(items) {
     backCard.className = 'grid-item focusable back-item';
     backCard.setAttribute('tabindex', '0');
     backCard.innerHTML = `
-      <div class="item-icon-wrapper">↩️</div>
+      <div class="item-icon-wrapper"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></div>
       <div class="item-name">..</div>
       <div class="item-meta">
         <span>Parent Folder</span>
@@ -520,12 +520,19 @@ function renderFiles(items) {
       const posterUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.posterPath)}`;
       iconHtml = `<div class="item-poster-wrapper"><img src="${posterUrl}" class="item-poster" alt="${item.name} poster"></div>`;
     } else {
-      let icon = '📄';
-      if (item.type === 'folder') icon = '📁';
-      else if (item.type === 'video') icon = '🎬';
-      else if (item.type === 'audio') icon = '🎵';
-      else if (item.type === 'image') icon = '🖼️';
-      iconHtml = `<div class="item-icon-wrapper">${icon}</div>`;
+      let svgMarkup = '';
+      if (item.type === 'folder') {
+        svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+      } else if (item.type === 'video') {
+        svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 6 3 11l-.9-2.4 17.2-5z"/><path d="M4 22h16a2 2 0 0 0 2-2V10H2v10a2 2 0 0 0 2 2z"/><path d="M2 10 14.5 6.4"/><path d="m7 4 3 6"/><path d="m11 3 3 6"/><path d="m15 2 3 6"/></svg>`;
+      } else if (item.type === 'audio') {
+        svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+      } else if (item.type === 'image') {
+        svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+      } else {
+        svgMarkup = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+      }
+      iconHtml = `<div class="item-icon-wrapper">${svgMarkup}</div>`;
     }
 
     card.innerHTML = `

@@ -16,7 +16,7 @@
     <!-- SCREEN 0: Splash Welcome Screen -->
     <div id="splash-screen" class="screen active">
       <div class="glass-card splash-card">
-        <div class="splash-logo">⚡</div>
+        <div class="splash-logo"><svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
         <h1 class="splash-title">FastDrop TV</h1>
         <p class="splash-developer">Developed by Varshan</p>
         <div class="splash-loader">
@@ -29,7 +29,7 @@
     <div id="connection-screen" class="screen">
       <div class="glass-card connection-card">
         <div class="logo-area">
-          <div class="logo-icon">⚡</div>
+          <div class="logo-icon"><svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
           <h1>FastDrop TV</h1>
           <p class="subtitle">Local Network Media Streamer</p>
         </div>
@@ -45,7 +45,7 @@
 
         <div class="dialog-buttons">
           <button id="connect-btn" class="btn focusable" tabindex="2">Connect Server</button>
-          <button id="fullscreen-btn" class="btn focusable" tabindex="3">🖥️ Fullscreen</button>
+          <button id="fullscreen-btn" class="btn focusable" tabindex="3"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: sub;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Fullscreen</button>
         </div>
         
         <div class="instructions">
@@ -63,7 +63,7 @@
     <div id="browser-screen" class="screen">
       <header class="browser-header">
         <div class="brand-small">
-          <span class="logo-icon-small">⚡</span> FastDrop TV
+          <span class="logo-icon-small"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 4px;"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></span> FastDrop TV
         </div>
         <div class="breadcrumbs" id="current-path-display">Shared Folder /</div>
         <div class="server-status" id="server-status-indicator">Connected to 192.168.1.8</div>
@@ -76,7 +76,7 @@
         </div>
         
         <div id="empty-folder-msg" class="empty-state-message hidden">
-          <div class="empty-icon">📁</div>
+          <div class="empty-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
           <h3>This folder is empty</h3>
           <p>Add some media files (MP4, MKV, MP3, JPG, PNG) to the shared directory.</p>
         </div>
@@ -125,7 +125,7 @@
     <div id="image-screen" class="screen player-screen image-viewer-screen">
       <div class="image-viewer-container">
         <img id="image-viewer" class="player-element" src="" alt="Image Viewer">
-        <div id="slideshow-indicator" class="slideshow-indicator hidden">📸 Slideshow Active</div>
+        <div id="slideshow-indicator" class="slideshow-indicator hidden"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Slideshow Active</div>
         <div class="image-title-overlay" id="image-title">Image Name.jpg</div>
       </div>
     </div>
@@ -133,7 +133,7 @@
     <!-- SCREEN 5: Audio Player Overlay -->
     <div id="audio-screen" class="screen player-screen audio-player-screen">
       <div class="glass-card audio-player-card">
-        <div class="audio-artwork">🎵</div>
+        <div class="audio-artwork"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
         <h2 id="audio-title" class="audio-title">Song Title.mp3</h2>
         <p class="audio-artist">FastDrop Audio Streamer</p>
         
@@ -158,7 +158,7 @@
     <!-- SCREEN 6: Resume Playback Dialog (Glassmorphic Overlay) -->
     <div id="resume-dialog" class="dialog-overlay hidden">
       <div class="glass-card dialog-card">
-        <div class="dialog-icon">⏳</div>
+        <div class="dialog-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <h2>Resume Playing?</h2>
         <p>Would you like to resume this video from <span id="resume-time-label" style="color: #0084ff; font-weight: 700; font-family: monospace;">00:00</span>?</p>
         <div class="dialog-buttons">
@@ -171,7 +171,7 @@
     <!-- Global Alert/Toast Notification System -->
     <div id="toast-notification" class="toast hidden">
       <div class="toast-content">
-        <span class="toast-icon">⚠️</span>
+        <span class="toast-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
         <span id="toast-message" class="toast-text">An error occurred!</span>
       </div>
     </div>

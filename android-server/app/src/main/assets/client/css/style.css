@@ -37,6 +37,14 @@ body {
   -webkit-user-select: none;
 }
 
+/* SVG Icon sizing & matching */
+svg.icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 /* Base Container with Ambient Lighting */
 .app-container {
   width: 100%;
