@@ -31,6 +31,7 @@ const DOM = {
   // IP Inputs
   ipInput: document.getElementById('ip-input'),
   connectBtn: document.getElementById('connect-btn'),
+  fullscreenBtn: document.getElementById('fullscreen-btn'),
   
   // Browser elements
   fileGrid: document.getElementById('file-grid'),
@@ -117,6 +118,9 @@ function initApp() {
 
   // Set up event listeners
   DOM.connectBtn.addEventListener('click', connectToServer);
+  if (DOM.fullscreenBtn) {
+    DOM.fullscreenBtn.addEventListener('click', toggleFullscreen);
+  }
   
   // Add direct keydown event listener to document
   document.addEventListener('keydown', handleKeyDown);
@@ -584,6 +588,15 @@ function startVideoPlayback(startTime) {
   
   switchScreen('video-screen');
   
+  // Auto-request fullscreen on TV browser for immersive experience
+  try {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    }
+  } catch (e) {
+    console.warn("Auto-fullscreen entry bypassed: ", e);
+  }
+  
   DOM.videoPlayer.load();
   
   if (startTime > 0) {
@@ -609,6 +622,21 @@ function showResumeDialog(savedTime) {
     State.currentScreen = 'resume-dialog';
     updateFocusableList();
     focusElement(0); // Focus the "Resume" button
+  }
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen()
+      .then(() => {
+        showToast("Fullscreen mode enabled", 2000);
+      })
+      .catch(err => {
+        console.error("Fullscreen entry failed: ", err);
+        showToast("Fullscreen not supported or blocked by browser settings");
+      });
+  } else {
+    document.exitFullscreen();
   }
 }
 
