@@ -1,41 +1,5 @@
 <p align="center">
-  <svg width="400" height="150" viewBox="0 0 400 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- Definitions for gradients and glow -->
-    <defs>
-      <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#ffe082" />
-        <stop offset="50%" stop-color="#d4af37" />
-        <stop offset="100%" stop-color="#b8860b" />
-      </linearGradient>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="6" result="blur" />
-        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-      </filter>
-    </defs>
-    
-    <!-- Background card -->
-    <rect width="100%" height="100%" rx="16" fill="#0d0f14" />
-    <rect width="100%" height="100%" rx="16" stroke="url(#gold-grad)" stroke-width="1.5" stroke-opacity="0.3" />
-    
-    <!-- Glowing backing blur -->
-    <circle cx="200" cy="75" r="40" fill="#d4af37" fill-opacity="0.08" filter="url(#glow)" />
-    
-    <!-- Television & Lightning Logo -->
-    <g transform="translate(55, 38)">
-      <!-- TV Screen Outline -->
-      <rect x="0" y="0" width="85" height="58" rx="8" stroke="url(#gold-grad)" stroke-width="2.5" fill="#141822" />
-      <!-- TV Legs/Stand -->
-      <line x1="28" y1="58" x2="18" y2="74" stroke="url(#gold-grad)" stroke-width="3" stroke-linecap="round" />
-      <line x1="57" y1="58" x2="67" y2="74" stroke="url(#gold-grad)" stroke-width="3" stroke-linecap="round" />
-      <line x1="18" y1="74" x2="67" y2="74" stroke="url(#gold-grad)" stroke-width="3" stroke-linecap="round" />
-      <!-- Lightning Bolt inside screen -->
-      <path d="M45 14 L32 30 L41 30 L37 46 L53 26 L42 26 Z" fill="url(#gold-grad)" filter="url(#glow)" />
-    </g>
-    
-    <!-- Brand Title -->
-    <text x="165" y="70" fill="#fffdf5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" letter-spacing="1">FASTDROP TV</text>
-    <text x="165" y="92" fill="#c7b897" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5">PREMIUM MEDIA STREAMER</text>
-  </svg>
+  <img src="logo.svg" width="400" alt="FastDrop TV Logo">
 </p>
 
 <p align="center">
