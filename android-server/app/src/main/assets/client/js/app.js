@@ -31,7 +31,8 @@ const State = {
   repeatMode: 'none', // 'none' | 'one' | 'all'
   currentPdfDoc: null,
   currentPdfPage: 1,
-  totalPdfPages: 1
+  totalPdfPages: 1,
+  currentFilter: 'all' // 'all' | 'video' | 'audio' | 'image' | 'pdf'
 };
 
 // DOM Cache
@@ -172,6 +173,7 @@ function initApp() {
   // Set up Audio Controls and PDF viewer buttons listeners
   setupAudioControlsListeners();
   setupPdfControlsListeners();
+  setupFilterListeners();
 
   // Set up resume dialog button listeners
   if (DOM.resumeYesBtn && DOM.resumeNoBtn) {
@@ -527,8 +529,15 @@ function renderFiles(items) {
   // Breadcrumbs display updates
   DOM.currentPathDisplay.innerText = State.currentPath ? `Shared Folder / ${State.currentPath}` : 'Shared Folder /';
 
+  // Apply media filter/sorting
+  const filter = State.currentFilter || 'all';
+  let filteredItems = items;
+  if (filter !== 'all') {
+    filteredItems = items.filter(item => item.type === 'folder' || item.type === filter);
+  }
+
   // Toggle empty folder view if empty
-  if (items.length === 0 && !State.currentPath) {
+  if (filteredItems.length === 0 && !State.currentPath) {
     DOM.emptyFolderMsg.classList.remove('hidden');
     updateFocusableList();
     return;
@@ -562,7 +571,7 @@ function renderFiles(items) {
   }
 
   // Populate files/folders
-  items.forEach(item => {
+  filteredItems.forEach(item => {
     const card = document.createElement('div');
     card.className = 'grid-item focusable';
     card.setAttribute('data-path', item.relativePath);
@@ -1540,5 +1549,40 @@ function navigatePdfPage(direction) {
   if (newPage >= 1 && newPage <= State.totalPdfPages) {
     State.currentPdfPage = newPage;
     renderPdfPage(newPage);
+  }
+}
+
+// Media category filter/sorting functions
+function setupFilterListeners() {
+  const buttons = document.querySelectorAll('.filter-btn');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const filterVal = btn.getAttribute('data-filter');
+      selectFilter(filterVal);
+    });
+  });
+}
+
+function selectFilter(filterValue) {
+  State.currentFilter = filterValue;
+  
+  // Update UI active styling on filter buttons
+  const buttons = document.querySelectorAll('.filter-btn');
+  buttons.forEach(btn => {
+    if (btn.getAttribute('data-filter') === filterValue) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // Re-render cached files with the active filter
+  if (State.files) {
+    renderFiles(State.files);
+    // Keep focus on the active filter button so navigation is smooth
+    // The filter buttons are the first 5 elements in the focusable list
+    const filterBtnIndex = ['all', 'video', 'audio', 'image', 'pdf'].indexOf(filterValue);
+    focusElement(filterBtnIndex);
   }
 }

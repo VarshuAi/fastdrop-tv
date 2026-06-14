@@ -73,6 +73,15 @@
 
       <!-- Grid area for folders and files -->
       <main class="browser-content">
+        <!-- Media Category Filters -->
+        <div class="filter-bar" id="media-filter-bar">
+          <button class="filter-btn focusable active" data-filter="all" tabindex="10">All</button>
+          <button class="filter-btn focusable" data-filter="video" tabindex="11">Videos</button>
+          <button class="filter-btn focusable" data-filter="audio" tabindex="12">Audio</button>
+          <button class="filter-btn focusable" data-filter="image" tabindex="13">Images</button>
+          <button class="filter-btn focusable" data-filter="pdf" tabindex="14">PDFs</button>
+        </div>
+
         <div id="file-grid" class="file-grid-container">
           <!-- Dynamically populated files and folders -->
         </div>
