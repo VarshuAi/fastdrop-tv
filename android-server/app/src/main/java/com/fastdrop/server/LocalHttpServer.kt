@@ -538,7 +538,7 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
     private fun handleCastRequest(out: BufferedOutputStream, uri: String) {
         val queryIndex = uri.indexOf("?")
         val path = if (queryIndex != -1) uri.substring(0, queryIndex) else uri
-        val queryParams = parseQueryParams(uri)
+        val queryParams = getQueryParams(uri)
 
         when {
             path.endsWith("/play") -> {
@@ -622,22 +622,7 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         out.write(json.toByteArray())
     }
 
-    private fun parseQueryParams(uri: String): Map<String, String> {
-        val params = mutableMapOf<String, String>()
-        val queryIndex = uri.indexOf("?")
-        if (queryIndex == -1 || queryIndex >= uri.length - 1) return params
-        val queryString = uri.substring(queryIndex + 1)
-        val pairs = queryString.split("&")
-        for (pair in pairs) {
-            val idx = pair.indexOf("=")
-            if (idx != -1) {
-                val key = URLDecoder.decode(pair.substring(0, idx), "UTF-8")
-                val value = URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
-                params[key] = value
-            }
-        }
-        return params
-    }
+
 
     companion object CastState {
         @Volatile var activeVideoPath: String? = null
