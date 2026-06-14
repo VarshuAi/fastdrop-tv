@@ -82,6 +82,11 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 }
             }
 
+            if (method == "OPTIONS") {
+                sendOptionsResponse(out)
+                return
+            }
+
             if (method != "GET") {
                 sendErrorResponse(out, 501, "Not Implemented")
                 return
@@ -459,6 +464,12 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         out.write("Content-Length: ${responseBytes.size}\r\n".toByteArray())
         out.write("Connection: close\r\n\r\n".toByteArray())
         out.write(responseBytes)
+        out.flush()
+    }
+
+    private fun sendOptionsResponse(out: BufferedOutputStream) {
+        val response = "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization, Range\r\nAccess-Control-Max-Age: 86400\r\nConnection: close\r\n\r\n"
+        out.write(response.toByteArray())
         out.flush()
     }
 

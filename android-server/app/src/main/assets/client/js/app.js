@@ -1802,7 +1802,7 @@ function castPlayVideo(item) {
     })
     .catch(err => {
       console.error("Cast failed: ", err);
-      showToast("Casting failed! Ensure TV and phone are on same server.");
+      showToast("Casting failed: " + (err.message || err));
       goBack();
     });
 }
