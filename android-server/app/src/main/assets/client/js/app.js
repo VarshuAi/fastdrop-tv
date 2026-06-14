@@ -224,11 +224,29 @@ function initApp() {
   // Initialize focusable elements on the starting screen
   updateFocusableList();
   
-  // Auto-transition from splash to connection screen after 2.5 seconds
-  setTimeout(() => {
-    switchScreen('connection-screen');
-    focusElement(0); // Focus the IP Input field first
-  }, 2500);
+  // Parse URL parameters for auto-configuration (e.g. from Android app WebView)
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramMode = urlParams.get('mode'); // 'receiver' | 'remote'
+  const paramIp = urlParams.get('ip');     // e.g. '127.0.0.1' or '192.168.1.8'
+
+  if (paramMode) {
+    setAppMode(paramMode);
+  }
+  if (paramIp) {
+    DOM.ipInput.value = paramIp;
+    State.serverIp = paramIp;
+  }
+
+  if (paramMode && paramIp) {
+    // Skip splash screen delay and auto-connect
+    connectToServer();
+  } else {
+    // Auto-transition from splash to connection screen after 2.5 seconds
+    setTimeout(() => {
+      switchScreen('connection-screen');
+      focusElement(0); // Focus the IP Input field first
+    }, 2500);
+  }
 }
 
 // ----------------------------------------------------
@@ -536,6 +554,8 @@ function connectToServer() {
       clearTimeout(timeoutId);
       console.error("Connection failed: ", error);
       showToast("Connection failed! Ensure server is running and IP is correct.");
+      switchScreen('connection-screen');
+      focusElement(0);
     });
 }
 

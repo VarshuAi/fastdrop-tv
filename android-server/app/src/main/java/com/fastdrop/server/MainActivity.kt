@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.view.View
 import com.google.android.material.button.MaterialButton
 import java.net.NetworkInterface
 import java.util.*
@@ -26,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvIpValue: TextView
     private lateinit var tvTvLinkValue: TextView
     private lateinit var btnToggleServer: MaterialButton
+    private lateinit var btnOpenRemote: MaterialButton
 
     private val notificationPermissionCode = 202
 
@@ -37,9 +39,15 @@ class MainActivity : AppCompatActivity() {
         tvIpValue = findViewById(R.id.tvIpValue)
         tvTvLinkValue = findViewById(R.id.tvTvLinkValue)
         btnToggleServer = findViewById(R.id.btnToggleServer)
+        btnOpenRemote = findViewById(R.id.btnOpenRemote)
 
         btnToggleServer.setOnClickListener {
             handleToggleButtonClick()
+        }
+
+        btnOpenRemote.setOnClickListener {
+            val remoteIntent = Intent(this, RemoteActivity::class.java)
+            startActivity(remoteIntent)
         }
 
         // Initialize UI State
@@ -103,6 +111,7 @@ class MainActivity : AppCompatActivity() {
             tvStatusValue.setTextColor(Color.parseColor("#10b981")) // Green
             btnToggleServer.text = "Stop Server"
             btnToggleServer.setBackgroundColor(Color.parseColor("#ef4444")) // Red
+            btnOpenRemote.visibility = View.VISIBLE
             
             val ip = getLocalIpAddress()
             if (ip != null) {
@@ -114,6 +123,7 @@ class MainActivity : AppCompatActivity() {
             tvStatusValue.setTextColor(Color.parseColor("#ef4444")) // Red
             btnToggleServer.text = "Start Server"
             btnToggleServer.setBackgroundColor(Color.parseColor("#d4af37")) // Gold
+            btnOpenRemote.visibility = View.GONE
             tvIpValue.text = "http://---.---.---.---:8080"
             tvTvLinkValue.text = "http://---.---.---.---:8080/client/index.html"
         }

@@ -32,6 +32,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".RemoteActivity"
+            android:exported="false" />
+
         <!-- Register our background server Foreground Service -->
         <service
             android:name=".MediaServerService"
