@@ -236,6 +236,11 @@ We have successfully implemented and verified all premium audio and PDF features
 * **Lag-Free Rendering**: Renders PDF documents directly inside the media grid. PDF.js is fully bundled locally for 100% offline usage.
 * **Memory Management**: To prevent browser lag or crashes on memory-constrained TV browsers, pages are rendered one-at-a-time onto an HTML5 `<canvas>` element with strict garbage collection (`page.cleanup()`) on page transitions. Page navigation is handled simply with remote Left/Right arrow keys.
 
+### 4. 🗂️ Media Category Sorting & Filter Bar
+* **Instant Sorting**: Added a filter bar at the top of the file browser grid containing: **All**, **Videos**, **Audio**, **Images**, and **PDFs**.
+* **Clean Navigation**: Selecting any category instantly sorts/filters the grid to display only matching media files along with directories. Folders are kept visible so you can navigate folders while a filter is active.
+* **Tizen Focus Integration**: Seamlessly integrated into the 5-column layout for TV remote navigation.
+
 ---
 
 ## 🔮 Future Roadmap: Next-Level Features
