@@ -39,7 +39,8 @@ class RemoteActivity : AppCompatActivity() {
         }
 
         // Load Remote Web UI pointing to local server in Remote Mode
-        webView.loadUrl("http://127.0.0.1:8080/client/index.html?mode=remote&ip=127.0.0.1")
+        val serverIp = intent.getStringExtra("SERVER_IP") ?: "127.0.0.1"
+        webView.loadUrl("http://$serverIp:8080/client/index.html?mode=remote&ip=$serverIp")
     }
 
     @Deprecated("Deprecated in Java")

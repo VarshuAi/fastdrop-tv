@@ -268,6 +268,10 @@ A premium gold glassmorphic dashboard overlay (`#remote-screen`) displayed on th
 * **Audio Track Switcher**: Dynamically lists and enables toggling of multi-language audio tracks.
 * **Disconnect / Stop Casting**: Instantly stops the remote cast and returns both devices to the file browser grid.
 
+### 4. 🛠️ Hotfix: Dynamic IP Routing & Special Characters Decoding
+* **Dynamic IP Extra**: Resolved loopback connection issues by retrieving the phone's actual WLAN/Hotspot IP address in [MainActivity.kt](file:///c:/Users/Varshan/Downloads/projects/tieen/fastdrop-tv/android-server/app/src/main/java/com/fastdrop/server/MainActivity.kt) and passing it to [RemoteActivity.kt](file:///c:/Users/Varshan/Downloads/projects/tieen/fastdrop-tv/android-server/app/src/main/java/com/fastdrop/server/RemoteActivity.kt) via Intent extra. This replaces the hardcoded `127.0.0.1` and displays the correct server IP (e.g. `192.168.43.1`) in the TV receiver pill.
+* **Robust Query Decoding**: Updated [LocalHttpServer.kt](file:///c:/Users/Varshan/Downloads/projects/tieen/fastdrop-tv/android-server/app/src/main/java/com/fastdrop/server/LocalHttpServer.kt) to split query parameters on the raw encoded URI string, decoding individual parameters afterwards. This prevents filenames containing special characters like `&` or `=` from being truncated during playback and casting.
+
 ---
 
 ## 🔮 Future Roadmap: Next-Level Features

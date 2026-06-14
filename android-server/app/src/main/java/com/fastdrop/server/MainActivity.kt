@@ -47,6 +47,8 @@ class MainActivity : AppCompatActivity() {
 
         btnOpenRemote.setOnClickListener {
             val remoteIntent = Intent(this, RemoteActivity::class.java)
+            val ip = getLocalIpAddress() ?: "127.0.0.1"
+            remoteIntent.putExtra("SERVER_IP", ip)
             startActivity(remoteIntent)
         }
 

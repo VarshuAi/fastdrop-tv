@@ -92,26 +92,28 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 return
             }
 
-            // Route request
-            val parsedUri = URLDecoder.decode(rawUri, "UTF-8")
+            // Route request by path (without decoding query parameters first)
+            val queryIndex = rawUri.indexOf("?")
+            val rawPath = if (queryIndex != -1) rawUri.substring(0, queryIndex) else rawUri
+            val parsedPath = URLDecoder.decode(rawPath, "UTF-8")
             
             // Set base directory to /storage to enable both internal memory and USB OTG access
             val baseSharedFolder = File("/storage")
 
             when {
-                parsedUri.startsWith("/api/files") -> {
-                    handleApiRequest(out, parsedUri, baseSharedFolder)
+                parsedPath.startsWith("/api/files") -> {
+                    handleApiRequest(out, rawUri, baseSharedFolder)
                 }
-                parsedUri.startsWith("/api/cast") -> {
-                    handleCastRequest(out, parsedUri)
+                parsedPath.startsWith("/api/cast") -> {
+                    handleCastRequest(out, rawUri)
                 }
-                parsedUri.startsWith("/stream") -> {
-                    handleStreamRequest(out, parsedUri, rangeHeader, baseSharedFolder)
+                parsedPath.startsWith("/stream") -> {
+                    handleStreamRequest(out, rawUri, rangeHeader, baseSharedFolder)
                 }
-                parsedUri.startsWith("/client") -> {
-                    handleAssetRequest(out, parsedUri)
+                parsedPath.startsWith("/client") -> {
+                    handleAssetRequest(out, rawUri)
                 }
-                parsedUri == "/" -> {
+                parsedPath == "/" -> {
                     sendDashboardResponse(out)
                 }
                 else -> {
@@ -137,7 +139,8 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         // Remove query parameters if present
         val cleanUri = uri.split("?")[0].trimStart('/')
         try {
-            val inputStream = assetManager.open(cleanUri)
+            val decodedUri = URLDecoder.decode(cleanUri, "UTF-8")
+            val inputStream = assetManager.open(decodedUri)
             val ext = getExtension(cleanUri)
             val mime = when (ext) {
                 "html" -> "text/html"
@@ -497,9 +500,13 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
             for (pair in pairs) {
                 val index = pair.indexOf("=")
                 if (index > 0) {
-                    val key = pair.substring(0, index)
-                    val value = pair.substring(index + 1)
-                    params[key] = value
+                    try {
+                        val key = URLDecoder.decode(pair.substring(0, index), "UTF-8")
+                        val value = URLDecoder.decode(pair.substring(index + 1), "UTF-8")
+                        params[key] = value
+                    } catch (e: Exception) {
+                        Log.e(tag, "Failed to decode query param: ${e.message}")
+                    }
                 }
             }
         }
