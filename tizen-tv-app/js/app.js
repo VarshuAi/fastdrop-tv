@@ -32,7 +32,14 @@ const State = {
   currentPdfDoc: null,
   currentPdfPage: 1,
   totalPdfPages: 1,
-  currentFilter: 'all' // 'all' | 'video' | 'audio' | 'image' | 'pdf'
+  currentFilter: 'all', // 'all' | 'video' | 'audio' | 'image' | 'pdf'
+  
+  // Casting properties
+  appMode: 'receiver', // 'receiver' | 'remote'
+  lastCastCommandTimestamp: 0,
+  castStatusInterval: null,
+  isScrubbing: false,
+  remoteState: null
 };
 
 // DOM Cache
@@ -107,7 +114,24 @@ const DOM = {
   audioPlayBtn: document.getElementById('audio-play-btn'),
   audioNextBtn: document.getElementById('audio-next-btn'),
   audioShuffleBtn: document.getElementById('audio-shuffle-btn'),
-  audioRepeatBtn: document.getElementById('audio-repeat-btn')
+  audioRepeatBtn: document.getElementById('audio-repeat-btn'),
+
+  // Mode Selection Buttons
+  modeReceiverBtn: document.getElementById('mode-receiver-btn'),
+  modeRemoteBtn: document.getElementById('mode-remote-btn'),
+
+  // Remote Control Elements
+  remoteScreen: document.getElementById('remote-screen'),
+  remoteMediaTitle: document.getElementById('remote-media-title'),
+  remoteStatusText: document.getElementById('remote-status-text'),
+  remoteProgressSlider: document.getElementById('remote-progress-slider'),
+  remoteCurrentTime: document.getElementById('remote-current-time'),
+  remoteTotalDuration: document.getElementById('remote-total-duration'),
+  remotePlayBtn: document.getElementById('remote-play-btn'),
+  remoteRewBtn: document.getElementById('remote-rew-btn'),
+  remoteFfBtn: document.getElementById('remote-ff-btn'),
+  remoteAudioSelect: document.getElementById('remote-audio-select'),
+  remoteStopBtn: document.getElementById('remote-stop-btn')
 };
 
 // ----------------------------------------------------
@@ -174,6 +198,12 @@ function initApp() {
   setupAudioControlsListeners();
   setupPdfControlsListeners();
   setupFilterListeners();
+  
+  // Set up Receiver/Remote mode select buttons listeners
+  if (DOM.modeReceiverBtn && DOM.modeRemoteBtn) {
+    DOM.modeReceiverBtn.addEventListener('click', () => setAppMode('receiver'));
+    DOM.modeRemoteBtn.addEventListener('click', () => setAppMode('remote'));
+  }
 
   // Set up resume dialog button listeners
   if (DOM.resumeYesBtn && DOM.resumeNoBtn) {
@@ -260,6 +290,8 @@ function handleKeyDown(e) {
       exitVideoSettings();
     } else if (State.isAudioMinimized) {
       maximizeAudioPlayer();
+    } else if (State.currentScreen === 'remote-screen') {
+      stopCasting();
     } else {
       goBack();
     }
@@ -404,6 +436,10 @@ function goBack() {
       loadFiles();
     } else {
       // Exit browser to connection screen
+      if (State.castStatusInterval) {
+        clearInterval(State.castStatusInterval);
+        State.castStatusInterval = null;
+      }
       switchScreen('connection-screen');
       focusElement(0); // Focus IP input
     }
@@ -494,6 +530,7 @@ function connectToServer() {
       
       switchScreen('browser-screen');
       renderFiles(data);
+      initCastingEngine();
     })
     .catch(error => {
       clearTimeout(timeoutId);
@@ -633,7 +670,11 @@ function handleItemSelection(item) {
     State.currentPath = item.relativePath;
     loadFiles();
   } else if (item.type === 'video') {
-    playVideo(item);
+    if (State.appMode === 'remote') {
+      castPlayVideo(item);
+    } else {
+      playVideo(item);
+    }
   } else if (item.type === 'image') {
     viewImage(item);
   } else if (item.type === 'audio') {
@@ -1031,6 +1072,7 @@ function handleAudioControls(keyCode, e) {
 // ----------------------------------------------------
 function setupMediaPlayerListeners() {
   // Video Listeners
+  let lastReportTime = 0;
   DOM.videoPlayer.addEventListener('timeupdate', () => {
     const video = DOM.videoPlayer;
     if (video.duration) {
@@ -1049,6 +1091,13 @@ function setupMediaPlayerListeners() {
             video.dataset.lastSavedTime = time.toString();
           }
         }
+      }
+
+      // Throttle casting status reporting to at most once per 1.5 seconds
+      const now = Date.now();
+      if (State.appMode === 'receiver' && now - lastReportTime >= 1500) {
+        lastReportTime = now;
+        reportReceiverStatus();
       }
     }
   });
@@ -1129,15 +1178,28 @@ function stopAllMedia() {
   // Reset Video Settings active state
   exitVideoSettings();
   
-  // Stop slideshow timer if active
+  // Reset Slideshow
   stopSlideshow();
   
   // Reset Mini-Player state
   State.isAudioMinimized = false;
   if (DOM.miniPlayer) DOM.miniPlayer.classList.add('hidden');
   
+  // Clear Phone Remote status polling interval
+  if (State.castStatusInterval) {
+    clearInterval(State.castStatusInterval);
+    State.castStatusInterval = null;
+  }
+  
   // Reset Video
   DOM.videoPlayer.pause();
+  
+  // Send stop report to server if TV Receiver was casting
+  if (State.appMode === 'receiver' && State.currentScreen === 'video-screen') {
+    const url = `http://${State.serverIp}:${State.port}/api/cast/report?currentTime=0&duration=0&isPlaying=false&audioTracks=Default&activeAudioTrack=0`;
+    fetch(url).catch(err => console.warn("Failed to send stop report: ", err));
+  }
+  
   DOM.videoPlayer.removeAttribute('src'); // Completely unload source to free up TV RAM
   DOM.videoPlayer.load();
   DOM.videoProgressBar.style.width = '0%';
@@ -1586,3 +1648,323 @@ function selectFilter(filterValue) {
     focusElement(filterBtnIndex);
   }
 }
+
+// App Mode Selector
+function setAppMode(mode) {
+  State.appMode = mode;
+  if (DOM.modeReceiverBtn && DOM.modeRemoteBtn) {
+    if (mode === 'receiver') {
+      DOM.modeReceiverBtn.classList.add('active-mode');
+      DOM.modeRemoteBtn.classList.remove('active-mode');
+      showToast("Receiver Mode Activated (Play on this screen)", 1500);
+    } else {
+      DOM.modeReceiverBtn.classList.remove('active-mode');
+      DOM.modeRemoteBtn.classList.add('active-mode');
+      showToast("Remote Mode Activated (Cast to your TV)", 1500);
+    }
+  }
+}
+
+// Casting Engine Initializers
+function initCastingEngine() {
+  // Clear any existing casting intervals
+  if (State.castStatusInterval) {
+    clearInterval(State.castStatusInterval);
+    State.castStatusInterval = null;
+  }
+
+  State.lastCastCommandTimestamp = Date.now(); // Ignore commands sent before connection
+
+  if (State.appMode === 'receiver') {
+    startReceiverPolling();
+  }
+}
+
+// RECEIVER (TV) CAST LOGIC
+function startReceiverPolling() {
+  console.log("Starting Cast Receiver Command Poller...");
+  State.castStatusInterval = setInterval(pollReceiverCommands, 1500);
+}
+
+function pollReceiverCommands() {
+  if (State.appMode !== 'receiver') return;
+  const url = `http://${State.serverIp}:${State.port}/api/cast/status`;
+  
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (!data || !data.timestamp) return;
+      
+      // If a new command was received
+      if (data.timestamp > State.lastCastCommandTimestamp) {
+        State.lastCastCommandTimestamp = data.timestamp;
+        console.log(`Received Cast Command: "${data.command}" for video: "${data.activeVideoPath}"`);
+        
+        switch (data.command) {
+          case 'play':
+            if (data.activeVideoPath) {
+              const item = {
+                relativePath: data.activeVideoPath,
+                name: data.activeVideoPath.split('/').pop(),
+                type: 'video'
+              };
+              
+              // Only load and play if not already playing this exact video
+              if (State.currentScreen !== 'video-screen' || !State.currentVideoItem || State.currentVideoItem.relativePath !== item.relativePath) {
+                stopAllMedia();
+                playVideo(item);
+              } else if (DOM.videoPlayer.paused) {
+                DOM.videoPlayer.play().catch(err => console.error("Play failed: ", err));
+              }
+            }
+            break;
+            
+          case 'pause':
+            if (State.currentScreen === 'video-screen' && !DOM.videoPlayer.paused) {
+              DOM.videoPlayer.pause();
+            }
+            break;
+            
+          case 'seek':
+            if (State.currentScreen === 'video-screen') {
+              DOM.videoPlayer.currentTime = data.seekTime;
+            }
+            break;
+            
+          case 'change-audio':
+            if (State.currentScreen === 'video-screen' && DOM.videoPlayer.audioTracks) {
+              if (DOM.videoPlayer.audioTracks[data.audioTrackIndex]) {
+                for (let i = 0; i < DOM.videoPlayer.audioTracks.length; i++) {
+                  DOM.videoPlayer.audioTracks[i].enabled = (i === data.audioTrackIndex);
+                }
+                showToast(`Switched Audio Track: ${DOM.videoPlayer.audioTracks[data.audioTrackIndex].label || DOM.videoPlayer.audioTracks[data.audioTrackIndex].language || (data.audioTrackIndex + 1)}`, 2000);
+              }
+            }
+            break;
+            
+          case 'stop':
+            if (State.currentScreen === 'video-screen') {
+              stopAllMedia();
+              switchScreen('browser-screen');
+            }
+            break;
+        }
+      }
+    })
+    .catch(err => console.warn("Failed to poll receiver commands: ", err));
+}
+
+function reportReceiverStatus() {
+  if (State.appMode !== 'receiver' || State.currentScreen !== 'video-screen') return;
+  const video = DOM.videoPlayer;
+  
+  // Extract audio track languages
+  const tracks = [];
+  let activeIndex = 0;
+  if (video.audioTracks && video.audioTracks.length > 0) {
+    for (let i = 0; i < video.audioTracks.length; i++) {
+      const t = video.audioTracks[i];
+      tracks.push(t.label || t.language || `Track ${i + 1}`);
+      if (t.enabled) activeIndex = i;
+    }
+  } else {
+    tracks.push("Default");
+  }
+
+  const tracksStr = encodeURIComponent(tracks.join(','));
+  const isPlaying = !video.paused;
+  
+  const url = `http://${State.serverIp}:${State.port}/api/cast/report?currentTime=${video.currentTime}&duration=${video.duration || 0}&isPlaying=${isPlaying}&audioTracks=${tracksStr}&activeAudioTrack=${activeIndex}`;
+  
+  fetch(url).catch(err => console.warn("Failed to report status: ", err));
+}
+
+
+// REMOTE CONTROLLER (PHONE) CAST LOGIC
+function castPlayVideo(item) {
+  State.lastGridFocusedIndex = State.focusedIndex;
+  
+  if (DOM.remoteMediaTitle) {
+    DOM.remoteMediaTitle.innerText = item.name;
+  }
+  if (DOM.remoteStatusText) {
+    DOM.remoteStatusText.innerText = "Casting media to TV...";
+  }
+  
+  switchScreen('remote-screen');
+  
+  const url = `http://${State.serverIp}:${State.port}/api/cast/play?path=${encodeURIComponent(item.relativePath)}`;
+  
+  fetch(url)
+    .then(res => res.json())
+    .then(() => {
+      startRemoteControllerPolling();
+    })
+    .catch(err => {
+      console.error("Cast failed: ", err);
+      showToast("Casting failed! Ensure TV and phone are on same server.");
+      goBack();
+    });
+}
+
+// Controller Status Poller
+function startRemoteControllerPolling() {
+  if (State.castStatusInterval) {
+    clearInterval(State.castStatusInterval);
+  }
+  console.log("Starting Remote Controller Status Poller...");
+  State.castStatusInterval = setInterval(pollRemoteControllerStatus, 1200);
+}
+
+function pollRemoteControllerStatus() {
+  if (State.appMode !== 'remote' || State.currentScreen !== 'remote-screen') return;
+  const url = `http://${State.serverIp}:${State.port}/api/cast/status`;
+  
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (!data) return;
+      State.remoteState = data;
+      
+      // Update play button styling based on TV state
+      if (DOM.remotePlayBtn) {
+        if (data.tvIsPlaying) {
+          DOM.remotePlayBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+        } else {
+          DOM.remotePlayBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+        }
+      }
+      
+      if (DOM.remoteStatusText) {
+        const diff = Date.now() - data.tvLastReported;
+        if (diff > 5000) {
+          DOM.remoteStatusText.innerText = "TV Player is offline / disconnected";
+        } else {
+          DOM.remoteStatusText.innerText = data.tvIsPlaying ? "Playing on TV" : "Paused on TV";
+        }
+      }
+      
+      // Update progress labels and slider
+      if (DOM.remoteCurrentTime) DOM.remoteCurrentTime.innerText = formatTime(data.tvCurrentTime);
+      if (DOM.remoteTotalDuration) DOM.remoteTotalDuration.innerText = formatTime(data.tvDuration);
+      
+      if (DOM.remoteProgressSlider && !State.isScrubbing) {
+        DOM.remoteProgressSlider.max = Math.floor(data.tvDuration) || 100;
+        DOM.remoteProgressSlider.value = Math.floor(data.tvCurrentTime) || 0;
+      }
+      
+      // Update audio languages select dropdown
+      if (DOM.remoteAudioSelect && data.tvAudioTracks && data.tvAudioTracks.length > 0) {
+        // Only rebuild options if the list is different
+        const currentCount = DOM.remoteAudioSelect.options.length;
+        if (currentCount !== data.tvAudioTracks.length) {
+          DOM.remoteAudioSelect.innerHTML = '';
+          data.tvAudioTracks.forEach((track, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx.toString();
+            opt.innerText = track;
+            DOM.remoteAudioSelect.appendChild(opt);
+          });
+        }
+        DOM.remoteAudioSelect.value = data.tvActiveAudioTrack.toString();
+      }
+    })
+    .catch(err => console.warn("Failed to fetch TV cast status: ", err));
+}
+
+function setupRemoteControlsListeners() {
+  if (DOM.remotePlayBtn) {
+    DOM.remotePlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.remoteState) {
+        const newCmd = State.remoteState.tvIsPlaying ? 'pause' : 'play';
+        sendRemoteControlCommand(newCmd);
+      }
+    });
+  }
+  
+  if (DOM.remoteRewBtn) {
+    DOM.remoteRewBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.remoteState) {
+        const newTime = Math.max(State.remoteState.tvCurrentTime - 10, 0);
+        sendRemoteSeekCommand(newTime);
+      }
+    });
+  }
+  
+  if (DOM.remoteFfBtn) {
+    DOM.remoteFfBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.remoteState) {
+        const newTime = Math.min(State.remoteState.tvCurrentTime + 10, State.remoteState.tvDuration || 0);
+        sendRemoteSeekCommand(newTime);
+      }
+    });
+  }
+  
+  if (DOM.remoteProgressSlider) {
+    DOM.remoteProgressSlider.addEventListener('mousedown', () => { State.isScrubbing = true; });
+    DOM.remoteProgressSlider.addEventListener('touchstart', () => { State.isScrubbing = true; });
+    
+    DOM.remoteProgressSlider.addEventListener('change', (e) => {
+      e.stopPropagation();
+      State.isScrubbing = false;
+      const targetTime = parseFloat(DOM.remoteProgressSlider.value);
+      sendRemoteSeekCommand(targetTime);
+    });
+  }
+  
+  if (DOM.remoteAudioSelect) {
+    DOM.remoteAudioSelect.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const index = parseInt(DOM.remoteAudioSelect.value, 10);
+      sendRemoteAudioCommand(index);
+    });
+  }
+  
+  if (DOM.remoteStopBtn) {
+    DOM.remoteStopBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      stopCasting();
+    });
+  }
+}
+
+function sendRemoteControlCommand(command) {
+  const url = `http://${State.serverIp}:${State.port}/api/cast/control?command=${command}`;
+  fetch(url)
+    .then(res => res.json())
+    .catch(err => console.error("Control command failed: ", err));
+}
+
+function sendRemoteSeekCommand(time) {
+  const url = `http://${State.serverIp}:${State.port}/api/cast/seek?time=${time}`;
+  fetch(url)
+    .then(res => res.json())
+    .catch(err => console.error("Seek command failed: ", err));
+}
+
+function sendRemoteAudioCommand(trackIndex) {
+  const url = `http://${State.serverIp}:${State.port}/api/cast/change-audio?index=${trackIndex}`;
+  fetch(url)
+    .then(res => res.json())
+    .catch(err => console.error("Audio switch command failed: ", err));
+}
+
+function stopCasting() {
+  showToast("Stopping playback cast...");
+  sendRemoteControlCommand('stop');
+  
+  if (State.castStatusInterval) {
+    clearInterval(State.castStatusInterval);
+    State.castStatusInterval = null;
+  }
+  
+  switchScreen('browser-screen');
+  updateFocusableList();
+  focusElement(State.lastGridFocusedIndex || 0);
+}
+
+// Call remote control listeners once on startup
+setupRemoteControlsListeners();

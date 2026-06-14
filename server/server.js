@@ -408,6 +408,67 @@ app.get('/stream', (req, res) => {
   }
 });
 
+// Global casting state to coordinate TV Receiver and Phone Remote Controller
+let castState = {
+  activeVideoPath: null,
+  command: null,
+  seekTime: 0,
+  audioTrackIndex: 0,
+  timestamp: 0,
+  
+  // TV reported status properties
+  tvCurrentTime: 0,
+  tvDuration: 0,
+  tvIsPlaying: false,
+  tvAudioTracks: [],
+  tvActiveAudioTrack: 0,
+  tvLastReported: 0
+};
+
+// Endpoints for Phone Remote Controller to cast media and send commands
+app.get('/api/cast/play', (req, res) => {
+  castState.activeVideoPath = req.query.path || null;
+  castState.command = 'play';
+  castState.timestamp = Date.now();
+  res.json({ success: true, castState });
+});
+
+app.get('/api/cast/control', (req, res) => {
+  castState.command = req.query.command || null;
+  castState.timestamp = Date.now();
+  res.json({ success: true, castState });
+});
+
+app.get('/api/cast/seek', (req, res) => {
+  castState.command = 'seek';
+  castState.seekTime = parseFloat(req.query.time || '0');
+  castState.timestamp = Date.now();
+  res.json({ success: true, castState });
+});
+
+app.get('/api/cast/change-audio', (req, res) => {
+  castState.command = 'change-audio';
+  castState.audioTrackIndex = parseInt(req.query.index || '0', 10);
+  castState.timestamp = Date.now();
+  res.json({ success: true, castState });
+});
+
+// Endpoint for TV Receiver to post its live status
+app.get('/api/cast/report', (req, res) => {
+  castState.tvCurrentTime = parseFloat(req.query.currentTime || '0');
+  castState.tvDuration = parseFloat(req.query.duration || '0');
+  castState.tvIsPlaying = req.query.isPlaying === 'true';
+  castState.tvAudioTracks = req.query.audioTracks ? req.query.audioTracks.split(',') : [];
+  castState.tvActiveAudioTrack = parseInt(req.query.activeAudioTrack || '0', 10);
+  castState.tvLastReported = Date.now();
+  res.json({ success: true });
+});
+
+// Endpoint for both TV Receiver and Phone Remote to fetch status
+app.get('/api/cast/status', (req, res) => {
+  res.json(castState);
+});
+
 // Start listening
 app.listen(config.port, '0.0.0.0', () => {
   const ips = getLocalIPs();

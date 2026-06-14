@@ -49,6 +49,10 @@
           <button id="connect-btn" class="btn focusable" tabindex="2">Connect Server</button>
           <button id="fullscreen-btn" class="btn focusable" tabindex="3"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: sub;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Fullscreen</button>
         </div>
+        <div style="display: flex; gap: 15px; margin-top: 15px; width: 100%;">
+          <button id="mode-receiver-btn" class="btn focusable active-mode" style="flex: 1; margin-top: 0; padding: 12px 10px; font-size: 15px;" tabindex="4">Receiver Mode (TV)</button>
+          <button id="mode-remote-btn" class="btn focusable" style="flex: 1; margin-top: 0; padding: 12px 10px; font-size: 15px;" tabindex="5">Remote Mode (Phone)</button>
+        </div>
         
         <div class="instructions">
           <h3>How to start:</h3>
@@ -217,6 +221,56 @@
         <div id="pdf-loading" class="pdf-loading-spinner hidden">
           <div class="spinner-circle"></div>
           <span>Loading Page...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 8: Phone Remote Control Dashboard -->
+    <div id="remote-screen" class="screen remote-control-screen">
+      <div class="remote-container glass-card">
+        <div class="remote-header">
+          <div class="remote-casting-badge">
+            <svg class="icon animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><path d="M12 17h.01"/><path d="M8 21h8"/><path d="M12 17v4"/></svg> Casting to TV
+          </div>
+          <h2 id="remote-media-title" class="remote-media-title">Movie Title.mp4</h2>
+        </div>
+
+        <div class="remote-status-text" id="remote-status-text">Connecting to TV player...</div>
+
+        <!-- Timeline / Slider progress -->
+        <div class="remote-progress-section">
+          <div class="time-labels">
+            <span id="remote-current-time">00:00</span>
+            <span id="remote-total-duration">00:00</span>
+          </div>
+          <input type="range" id="remote-progress-slider" min="0" max="100" value="0" class="remote-slider focusable" tabindex="60">
+        </div>
+
+        <!-- Controls Row -->
+        <div class="remote-controls-row">
+          <button id="remote-rew-btn" class="btn focusable" tabindex="61">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
+          </button>
+          <button id="remote-play-btn" class="btn focusable" tabindex="62">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button id="remote-ff-btn" class="btn focusable" tabindex="63">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+          </button>
+        </div>
+
+        <!-- Audio track selection dropdown -->
+        <div class="remote-audio-section">
+          <label for="remote-audio-select">Audio Language Track:</label>
+          <select id="remote-audio-select" class="remote-select focusable" tabindex="64">
+            <option value="0">Default</option>
+          </select>
+        </div>
+
+        <div class="remote-footer">
+          <button id="remote-stop-btn" class="btn focusable" tabindex="65">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>Stop Casting
+          </button>
         </div>
       </div>
     </div>

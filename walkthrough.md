@@ -243,6 +243,34 @@ We have successfully implemented and verified all premium audio and PDF features
 
 ---
 
+## 📱 Completed Phase 6 Phone-to-TV Video Casting & Remote Control
+
+We have successfully implemented the local network video casting and remote controller dashboard.
+
+### 1. 📱 App Mode Toggles
+* **Receiver Mode (TV)**: Configures the client to act as a playback target. It runs a background polling loop checking the server's cast state every 1.5s. If a new cast command is received, it auto-plays the video, pauses/resumes, seeks, or switches audio tracks.
+* **Remote Mode (Phone)**: Configures the client to act as a remote controller. Selecting a video on the phone initiates the cast on the TV browser and redirects the phone to the glassmorphic remote dashboard overlay.
+
+### 2. 📡 HTTP Casting Broker API
+Endpoints implemented on both the **Node.js Server** and the **Android Native Kotlin Server**:
+* `/api/cast/play?path=...`: Initiates casting for a video path.
+* `/api/cast/control?command=play|pause|stop`: Sends basic playback control commands.
+* `/api/cast/seek?time=...`: Seeks the TV player to a specific timestamp in seconds.
+* `/api/cast/change-audio?index=...`: Switches the enabled audio track language on the TV video player.
+* `/api/cast/report?...`: Receives real-time state from the TV receiver (elapsed time, total duration, playing state, active audio track).
+* `/api/cast/status`: Serves the aggregated state to controllers.
+
+### 3. 🎛️ Glassmorphic Remote Dashboard
+A premium gold glassmorphic dashboard overlay (`#remote-screen`) displayed on the phone:
+* **Active Metadata**: Shows the casting media name and connection status.
+* **Play/Pause Toggle**: Updates its icon dynamically based on the receiver's state.
+* **Progress Slider Timeline**: Syncs real-time with TV status and allows touch/drag seeking (scrubbing) back and forth.
+* **Audio Track Switcher**: Dynamically lists and enables toggling of multi-language audio tracks.
+* **Disconnect / Stop Casting**: Instantly stops the remote cast and returns both devices to the file browser grid.
+
+---
+
 ## 🔮 Future Roadmap: Next-Level Features
 
-* **🔊 Multi-Audio Track Selection**: Add a remote control options panel to switch the audio track language on the fly for multi-language movies.
+* **🌐 Subtitle casting support**: Enable casting and custom styling of subtitles from the remote screen.
+

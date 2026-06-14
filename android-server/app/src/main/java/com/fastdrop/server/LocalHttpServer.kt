@@ -97,6 +97,9 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 parsedUri.startsWith("/api/files") -> {
                     handleApiRequest(out, parsedUri, baseSharedFolder)
                 }
+                parsedUri.startsWith("/api/cast") -> {
+                    handleCastRequest(out, parsedUri)
+                }
                 parsedUri.startsWith("/stream") -> {
                     handleStreamRequest(out, parsedUri, rangeHeader, baseSharedFolder)
                 }
@@ -519,5 +522,125 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                   .replace("\n", "\\n")
                   .replace("\r", "\\r")
                   .replace("\t", "\\t")
+    }
+
+    private fun handleCastRequest(out: BufferedOutputStream, uri: String) {
+        val queryIndex = uri.indexOf("?")
+        val path = if (queryIndex != -1) uri.substring(0, queryIndex) else uri
+        val queryParams = parseQueryParams(uri)
+
+        when {
+            path.endsWith("/play") -> {
+                CastState.activeVideoPath = queryParams["path"]
+                CastState.command = "play"
+                CastState.timestamp = System.currentTimeMillis()
+                sendJsonStateResponse(out)
+            }
+            path.endsWith("/control") -> {
+                CastState.command = queryParams["command"]
+                CastState.timestamp = System.currentTimeMillis()
+                sendJsonStateResponse(out)
+            }
+            path.endsWith("/seek") -> {
+                CastState.command = "seek"
+                CastState.seekTime = queryParams["time"]?.toDoubleOrNull() ?: 0.0
+                CastState.timestamp = System.currentTimeMillis()
+                sendJsonStateResponse(out)
+            }
+            path.endsWith("/change-audio") -> {
+                CastState.command = "change-audio"
+                CastState.audioTrackIndex = queryParams["index"]?.toIntOrNull() ?: 0
+                CastState.timestamp = System.currentTimeMillis()
+                sendJsonStateResponse(out)
+            }
+            path.endsWith("/report") -> {
+                CastState.tvCurrentTime = queryParams["currentTime"]?.toDoubleOrNull() ?: 0.0
+                CastState.tvDuration = queryParams["duration"]?.toDoubleOrNull() ?: 0.0
+                CastState.tvIsPlaying = queryParams["isPlaying"] == "true"
+                CastState.tvAudioTracks = queryParams["audioTracks"] ?: ""
+                CastState.tvActiveAudioTrack = queryParams["activeAudioTrack"]?.toIntOrNull() ?: 0
+                CastState.tvLastReported = System.currentTimeMillis()
+                
+                val reportResponse = "{\"success\":true}"
+                out.write("HTTP/1.1 200 OK\r\n".toByteArray())
+                out.write("Content-Type: application/json\r\n".toByteArray())
+                out.write("Content-Length: ${reportResponse.toByteArray().size}\r\n".toByteArray())
+                out.write("Access-Control-Allow-Origin: *\r\n".toByteArray())
+                out.write("Connection: close\r\n\r\n".toByteArray())
+                out.write(reportResponse.toByteArray())
+            }
+            path.endsWith("/status") -> {
+                sendJsonStateResponse(out)
+            }
+            else -> {
+                sendErrorResponse(out, 404, "Not Found")
+            }
+        }
+    }
+
+    private fun sendJsonStateResponse(out: BufferedOutputStream) {
+        val pathVal = if (CastState.activeVideoPath == null) "null" else "\"${escapeJsonString(CastState.activeVideoPath!!)}\""
+        val cmdVal = if (CastState.command == null) "null" else "\"${CastState.command}\""
+        
+        // Build JSON representation of TV reported audio tracks list
+        val tracksList = if (CastState.tvAudioTracks.isEmpty()) "[]" else {
+            "[" + CastState.tvAudioTracks.split(",").joinToString(",") { "\"${escapeJsonString(it)}\"" } + "]"
+        }
+
+        val json = """
+            {
+                "activeVideoPath": $pathVal,
+                "command": $cmdVal,
+                "seekTime": ${CastState.seekTime},
+                "audioTrackIndex": ${CastState.audioTrackIndex},
+                "timestamp": ${CastState.timestamp},
+                "tvCurrentTime": ${CastState.tvCurrentTime},
+                "tvDuration": ${CastState.tvDuration},
+                "tvIsPlaying": ${CastState.tvIsPlaying},
+                "tvAudioTracks": $tracksList,
+                "tvActiveAudioTrack": ${CastState.tvActiveAudioTrack},
+                "tvLastReported": ${CastState.tvLastReported}
+            }
+        """.trimIndent()
+
+        out.write("HTTP/1.1 200 OK\r\n".toByteArray())
+        out.write("Content-Type: application/json\r\n".toByteArray())
+        out.write("Content-Length: ${json.toByteArray().size}\r\n".toByteArray())
+        out.write("Access-Control-Allow-Origin: *\r\n".toByteArray())
+        out.write("Connection: close\r\n\r\n".toByteArray())
+        out.write(json.toByteArray())
+    }
+
+    private fun parseQueryParams(uri: String): Map<String, String> {
+        val params = mutableMapOf<String, String>()
+        val queryIndex = uri.indexOf("?")
+        if (queryIndex == -1 || queryIndex >= uri.length - 1) return params
+        val queryString = uri.substring(queryIndex + 1)
+        val pairs = queryString.split("&")
+        for (pair in pairs) {
+            val idx = pair.indexOf("=")
+            if (idx != -1) {
+                val key = URLDecoder.decode(pair.substring(0, idx), "UTF-8")
+                val value = URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
+                params[key] = value
+            }
+        }
+        return params
+    }
+
+    companion object {
+        @Volatile var activeVideoPath: String? = null
+        @Volatile var command: String? = null
+        @Volatile var seekTime: Double = 0.0
+        @Volatile var audioTrackIndex: Int = 0
+        @Volatile var timestamp: Long = 0
+        
+        // TV reported status properties
+        @Volatile var tvCurrentTime: Double = 0.0
+        @Volatile var tvDuration: Double = 0.0
+        @Volatile var tvIsPlaying: Boolean = false
+        @Volatile var tvAudioTracks: String = "" // comma separated
+        @Volatile var tvActiveAudioTrack: Int = 0
+        @Volatile var tvLastReported: Long = 0
     }
 }
