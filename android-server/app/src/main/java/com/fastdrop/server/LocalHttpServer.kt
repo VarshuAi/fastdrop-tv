@@ -628,7 +628,7 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         return params
     }
 
-    companion object {
+    companion object CastState {
         @Volatile var activeVideoPath: String? = null
         @Volatile var command: String? = null
         @Volatile var seekTime: Double = 0.0
