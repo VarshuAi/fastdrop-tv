@@ -653,6 +653,16 @@ function renderFiles(items) {
     card.setAttribute('data-type', item.type);
     card.setAttribute('tabindex', '0');
 
+    let downloadBtnHtml = '';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (item.type !== 'folder' && (State.appMode === 'remote' || isMobile)) {
+      downloadBtnHtml = `
+        <button class="card-download-btn" title="Download File">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      `;
+    }
+
     // Select icon or poster based on item type
     let iconHtml = '';
     if (item.type === 'video' && item.posterPath) {
@@ -677,6 +687,7 @@ function renderFiles(items) {
     }
 
     card.innerHTML = `
+      ${downloadBtnHtml}
       ${iconHtml}
       <div class="item-name">${item.name}</div>
       <div class="item-meta">
@@ -684,6 +695,15 @@ function renderFiles(items) {
         <span>${item.type === 'folder' ? '' : item.sizeFormatted}</span>
       </div>
     `;
+
+    // Handle download button click
+    const dlBtn = card.querySelector('.card-download-btn');
+    if (dlBtn) {
+      dlBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card navigation/cast trigger
+        downloadFile(item);
+      });
+    }
 
     // Handle Selection click
     card.addEventListener('click', () => {
@@ -2132,6 +2152,20 @@ function uploadNextFile(files, index) {
   });
 
   xhr.send(file);
+}
+
+
+function downloadFile(item) {
+  const url = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.relativePath)}&download=true`;
+  showToast(`Starting download: ${item.name}...`, 2000);
+  
+  // Create an invisible anchor element to trigger browser download manager
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = item.name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function closeUploadDialog() {

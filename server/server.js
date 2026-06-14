@@ -361,6 +361,7 @@ app.get('/stream', (req, res) => {
     const fileSize = stat.size;
     const mimeType = getMimeType(filePath);
     const range = req.headers.range;
+    const download = req.query.download === 'true';
 
     // Handle range requests
     if (range) {
@@ -387,6 +388,13 @@ app.get('/stream', (req, res) => {
         'Content-Type': mimeType,
       };
 
+      if (download) {
+        const basename = path.basename(filePath);
+        const safeFilename = basename.replace(/"/g, '\\"');
+        const encodedFilename = encodeURIComponent(basename).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+        headers['Content-Disposition'] = `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`;
+      }
+
       res.writeHead(206, headers);
       fileStream.pipe(res);
     } else {
@@ -396,6 +404,13 @@ app.get('/stream', (req, res) => {
         'Content-Type': mimeType,
         'Accept-Ranges': 'bytes'
       };
+
+      if (download) {
+        const basename = path.basename(filePath);
+        const safeFilename = basename.replace(/"/g, '\\"');
+        const encodedFilename = encodeURIComponent(basename).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+        headers['Content-Disposition'] = `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`;
+      }
 
       res.writeHead(200, headers);
       fs.createReadStream(filePath).pipe(res);

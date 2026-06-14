@@ -429,11 +429,20 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
             val fileStream = FileInputStream(targetFile)
             fileStream.skip(start)
 
+            val download = queryParams["download"] == "true"
             out.write("HTTP/1.1 206 Partial Content\r\n".toByteArray())
             out.write("Content-Range: bytes $start-$end/$fileSize\r\n".toByteArray())
             out.write("Accept-Ranges: bytes\r\n".toByteArray())
             out.write("Content-Length: $chunkSize\r\n".toByteArray())
             out.write("Content-Type: $mime\r\n".toByteArray())
+            if (download) {
+                val safeFilename = targetFile.name.replace("\"", "\\\"")
+                val encodedFilename = java.net.URLEncoder.encode(targetFile.name, "UTF-8")
+                    .replace("+", "%20")
+                    .replace("*", "%2A")
+                    .replace("%7E", "~")
+                out.write("Content-Disposition: attachment; filename=\"$safeFilename\"; filename*=UTF-8''$encodedFilename\r\n".toByteArray())
+            }
             out.write("Access-Control-Allow-Origin: *\r\n".toByteArray())
             out.write("Connection: close\r\n\r\n".toByteArray())
 
@@ -451,10 +460,19 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
         } else {
             // Stream entire file
             val fileStream = FileInputStream(targetFile)
+            val download = queryParams["download"] == "true"
             out.write("HTTP/1.1 200 OK\r\n".toByteArray())
             out.write("Accept-Ranges: bytes\r\n".toByteArray())
             out.write("Content-Length: $fileSize\r\n".toByteArray())
             out.write("Content-Type: $mime\r\n".toByteArray())
+            if (download) {
+                val safeFilename = targetFile.name.replace("\"", "\\\"")
+                val encodedFilename = java.net.URLEncoder.encode(targetFile.name, "UTF-8")
+                    .replace("+", "%20")
+                    .replace("*", "%2A")
+                    .replace("%7E", "~")
+                out.write("Content-Disposition: attachment; filename=\"$safeFilename\"; filename*=UTF-8''$encodedFilename\r\n".toByteArray())
+            }
             out.write("Access-Control-Allow-Origin: *\r\n".toByteArray())
             out.write("Connection: close\r\n\r\n".toByteArray())
 

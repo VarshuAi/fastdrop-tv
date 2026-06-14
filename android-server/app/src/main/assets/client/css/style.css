@@ -1409,3 +1409,34 @@ svg.icon {
   text-align: center;
 }
 
+/* Card Download Button */
+.card-download-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  z-index: 10;
+}
+
+.card-download-btn:hover, .card-download-btn.focused {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--focus-text);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.grid-item.focused .card-download-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+
