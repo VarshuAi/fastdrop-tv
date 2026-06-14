@@ -153,6 +153,20 @@ const Keys = {
 };
 
 // ----------------------------------------------------
+
+// Base URL helper to resolve same-origin vs absolute TV IP routing
+function getBaseUrl() {
+  const hostname = window.location.hostname;
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    const isLocalhostHost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isLocalhostServer = State.serverIp === 'localhost' || State.serverIp === '127.0.0.1';
+    if (State.serverIp === hostname || (isLocalhostHost && isLocalhostServer)) {
+      return window.location.origin;
+    }
+  }
+  return `http://${State.serverIp}:${State.port}`;
+}
+
 // INITIALIZATION
 // ----------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
@@ -220,6 +234,9 @@ function initApp() {
       startVideoPlayback(0);
     });
   }
+
+  // Set up File Uploader listeners
+  setupFileUploaderListeners();
 
   // Initialize focusable elements on the starting screen
   updateFocusableList();
@@ -527,7 +544,7 @@ function connectToServer() {
   showToast("Connecting to local server...", 2000);
 
   // Attempt to fetch files from root directory of local server
-  const testUrl = `http://${State.serverIp}:${State.port}/api/files`;
+  const testUrl = `${getBaseUrl()}/api/files`;
   
   // Set fetch timeout of 6 seconds
   const controller = new AbortController();
@@ -548,6 +565,7 @@ function connectToServer() {
       
       switchScreen('browser-screen');
       renderFiles(data);
+      updateUploadVisibility();
       initCastingEngine();
     })
     .catch(error => {
@@ -563,7 +581,7 @@ function connectToServer() {
 // LOAD & RENDER FILES
 // ----------------------------------------------------
 function loadFiles() {
-  const url = `http://${State.serverIp}:${State.port}/api/files?path=${encodeURIComponent(State.currentPath)}`;
+  const url = `${getBaseUrl()}/api/files?path=${encodeURIComponent(State.currentPath)}`;
   
   fetch(url)
     .then(response => {
@@ -638,7 +656,7 @@ function renderFiles(items) {
     // Select icon or poster based on item type
     let iconHtml = '';
     if (item.type === 'video' && item.posterPath) {
-      const posterUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.posterPath)}`;
+      const posterUrl = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.posterPath)}`;
       iconHtml = `<div class="item-poster-wrapper"><img src="${posterUrl}" class="item-poster" alt="${item.name} poster"></div>`;
     } else {
       let svgMarkup = '';
@@ -730,7 +748,7 @@ function startVideoPlayback(startTime) {
   const item = State.currentVideoItem;
   if (!item) return;
   
-  const streamUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
+  const streamUrl = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.relativePath)}`;
   console.log(`Streaming Video from: ${streamUrl}`);
   
   DOM.videoTitle.innerText = item.name;
@@ -740,7 +758,7 @@ function startVideoPlayback(startTime) {
   const track = DOM.videoSubtitleTrack || document.getElementById('video-subtitle-track');
   if (track) {
     if (item.subtitlePath) {
-      track.src = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.subtitlePath)}`;
+      track.src = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.subtitlePath)}`;
       track.track.mode = 'showing';
     } else {
       track.removeAttribute('src');
@@ -933,7 +951,7 @@ function viewImage(item) {
 
 function displayImage(item) {
   if (!item) return;
-  const streamUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
+  const streamUrl = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.relativePath)}`;
   
   DOM.imageTitle.innerText = item.name;
   DOM.imageViewer.src = streamUrl;
@@ -1020,7 +1038,7 @@ function playAudio(item) {
   State.audioItems = State.files.filter(f => f.type === 'audio');
   State.currentAudioIndex = State.audioItems.findIndex(f => f.relativePath === item.relativePath);
 
-  const streamUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
+  const streamUrl = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.relativePath)}`;
   
   DOM.audioTitle.innerText = item.name;
   DOM.audioPlayer.src = streamUrl;
@@ -1216,7 +1234,7 @@ function stopAllMedia() {
   
   // Send stop report to server if TV Receiver was casting
   if (State.appMode === 'receiver' && State.currentScreen === 'video-screen') {
-    const url = `http://${State.serverIp}:${State.port}/api/cast/report?currentTime=0&duration=0&isPlaying=false&audioTracks=Default&activeAudioTrack=0`;
+    const url = `${getBaseUrl()}/api/cast/report?currentTime=0&duration=0&isPlaying=false&audioTracks=Default&activeAudioTrack=0`;
     fetch(url).catch(err => console.warn("Failed to send stop report: ", err));
   }
   
@@ -1525,7 +1543,7 @@ function playPdf(item) {
   switchScreen('pdf-screen');
   showPdfLoading(true);
   
-  const pdfUrl = `http://${State.serverIp}:${State.port}/stream?path=${encodeURIComponent(item.relativePath)}`;
+  const pdfUrl = `${getBaseUrl()}/stream?path=${encodeURIComponent(item.relativePath)}`;
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/lib/pdf.worker.min.js';
   
   pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
@@ -1682,6 +1700,7 @@ function setAppMode(mode) {
       DOM.modeRemoteBtn.classList.add('active-mode');
       showToast("Remote Mode Activated (Cast to your TV)", 1500);
     }
+    updateUploadVisibility();
   }
 }
 
@@ -1708,7 +1727,7 @@ function startReceiverPolling() {
 
 function pollReceiverCommands() {
   if (State.appMode !== 'receiver') return;
-  const url = `http://${State.serverIp}:${State.port}/api/cast/status`;
+  const url = `${getBaseUrl()}/api/cast/status`;
   
   fetch(url)
     .then(res => res.json())
@@ -1794,7 +1813,7 @@ function reportReceiverStatus() {
   const tracksStr = encodeURIComponent(tracks.join(','));
   const isPlaying = !video.paused;
   
-  const url = `http://${State.serverIp}:${State.port}/api/cast/report?currentTime=${video.currentTime}&duration=${video.duration || 0}&isPlaying=${isPlaying}&audioTracks=${tracksStr}&activeAudioTrack=${activeIndex}`;
+  const url = `${getBaseUrl()}/api/cast/report?currentTime=${video.currentTime}&duration=${video.duration || 0}&isPlaying=${isPlaying}&audioTracks=${tracksStr}&activeAudioTrack=${activeIndex}`;
   
   fetch(url).catch(err => console.warn("Failed to report status: ", err));
 }
@@ -1813,7 +1832,7 @@ function castPlayVideo(item) {
   
   switchScreen('remote-screen');
   
-  const url = `http://${State.serverIp}:${State.port}/api/cast/play?path=${encodeURIComponent(item.relativePath)}`;
+  const url = `${getBaseUrl()}/api/cast/play?path=${encodeURIComponent(item.relativePath)}`;
   
   fetch(url)
     .then(res => res.json())
@@ -1838,7 +1857,7 @@ function startRemoteControllerPolling() {
 
 function pollRemoteControllerStatus() {
   if (State.appMode !== 'remote' || State.currentScreen !== 'remote-screen') return;
-  const url = `http://${State.serverIp}:${State.port}/api/cast/status`;
+  const url = `${getBaseUrl()}/api/cast/status`;
   
   fetch(url)
     .then(res => res.json())
@@ -1952,21 +1971,21 @@ function setupRemoteControlsListeners() {
 }
 
 function sendRemoteControlCommand(command) {
-  const url = `http://${State.serverIp}:${State.port}/api/cast/control?command=${command}`;
+  const url = `${getBaseUrl()}/api/cast/control?command=${command}`;
   fetch(url)
     .then(res => res.json())
     .catch(err => console.error("Control command failed: ", err));
 }
 
 function sendRemoteSeekCommand(time) {
-  const url = `http://${State.serverIp}:${State.port}/api/cast/seek?time=${time}`;
+  const url = `${getBaseUrl()}/api/cast/seek?time=${time}`;
   fetch(url)
     .then(res => res.json())
     .catch(err => console.error("Seek command failed: ", err));
 }
 
 function sendRemoteAudioCommand(trackIndex) {
-  const url = `http://${State.serverIp}:${State.port}/api/cast/change-audio?index=${trackIndex}`;
+  const url = `${getBaseUrl()}/api/cast/change-audio?index=${trackIndex}`;
   fetch(url)
     .then(res => res.json())
     .catch(err => console.error("Audio switch command failed: ", err));
@@ -1986,5 +2005,146 @@ function stopCasting() {
   focusElement(State.lastGridFocusedIndex || 0);
 }
 
+
+// ----------------------------------------------------
+// FILE UPLOADER ENGINE (MOBILE TO PC TRANSFER)
+// ----------------------------------------------------
+let activeUploadXhr = null;
+
+function setupFileUploaderListeners() {
+  const triggerBtn = document.getElementById('trigger-upload-btn');
+  const uploader = document.getElementById('file-uploader');
+  const cancelBtn = document.getElementById('cancel-upload-btn');
+
+  if (triggerBtn && uploader) {
+    triggerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      uploader.click();
+    });
+    uploader.addEventListener('change', handleFileUpload);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activeUploadXhr) {
+        activeUploadXhr.abort();
+        activeUploadXhr = null;
+        showToast("Upload cancelled");
+      }
+      closeUploadDialog();
+    });
+  }
+}
+
+function updateUploadVisibility() {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const fab = document.getElementById('upload-fab');
+  if (fab) {
+    if (State.appMode === 'remote' || isMobile) {
+      fab.classList.remove('hidden');
+    } else {
+      fab.classList.add('hidden');
+    }
+  }
+}
+
+function handleFileUpload(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  // Show upload dialog
+  const dialog = document.getElementById('upload-dialog');
+  if (dialog) {
+    dialog.classList.remove('hidden');
+    State.currentScreen = 'upload-dialog';
+    updateFocusableList();
+    focusElement(0); // Focus cancel button
+  }
+
+  uploadNextFile(files, 0);
+}
+
+function uploadNextFile(files, index) {
+  if (index >= files.length) {
+    // All uploads complete!
+    closeUploadDialog();
+    showToast(`Successfully uploaded ${files.length} file(s)!`);
+    // Reset file input so same files can be uploaded again
+    document.getElementById('file-uploader').value = '';
+    // Reload files list to show newly uploaded files immediately
+    loadFiles();
+    return;
+  }
+
+  const file = files[index];
+  const totalFiles = files.length;
+  
+  document.getElementById('upload-file-name').innerText = file.name;
+  document.getElementById('upload-file-index').innerText = `(${index + 1} / ${totalFiles})`;
+  document.getElementById('upload-progress-fill').style.width = '0%';
+  document.getElementById('upload-progress-percent').innerText = '0%';
+  document.getElementById('upload-speed').innerText = '0.00 MB/s';
+
+  const startTime = Date.now();
+  const url = `${getBaseUrl()}/api/upload?name=${encodeURIComponent(file.name)}&path=${encodeURIComponent(State.currentPath)}`;
+
+  const xhr = new XMLHttpRequest();
+  activeUploadXhr = xhr;
+
+  xhr.open('POST', url, true);
+  xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+
+  xhr.upload.addEventListener('progress', (event) => {
+    if (event.lengthComputable) {
+      const percent = Math.floor((event.loaded / event.total) * 100);
+      document.getElementById('upload-progress-fill').style.width = `${percent}%`;
+      document.getElementById('upload-progress-percent').innerText = `${percent}%`;
+
+      // Speed calculation
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      const speed = elapsedSeconds > 0 ? (event.loaded / elapsedSeconds) : 0;
+      let speedText = '0.00 KB/s';
+      if (speed > 1024 * 1024) {
+        speedText = `${(speed / (1024 * 1024)).toFixed(2)} MB/s`;
+      } else if (speed > 1024) {
+        speedText = `${(speed / 1024).toFixed(2)} KB/s`;
+      } else {
+        speedText = `${speed.toFixed(0)} B/s`;
+      }
+      document.getElementById('upload-speed').innerText = speedText;
+    }
+  });
+
+  xhr.addEventListener('load', () => {
+    if (xhr.status === 200) {
+      // Success, proceed to next file
+      uploadNextFile(files, index + 1);
+    } else {
+      closeUploadDialog();
+      showToast(`Upload failed for ${file.name}: ${xhr.statusText || 'Server error'}`);
+    }
+  });
+
+  xhr.addEventListener('error', () => {
+    closeUploadDialog();
+    showToast(`Network error uploading ${file.name}`);
+  });
+
+  xhr.send(file);
+}
+
+function closeUploadDialog() {
+  const dialog = document.getElementById('upload-dialog');
+  if (dialog) {
+    dialog.classList.add('hidden');
+  }
+  // Return to browser screen
+  State.currentScreen = 'browser-screen';
+  updateFocusableList();
+  focusElement(State.lastGridFocusedIndex || 0);
+}
+
 // Call remote control listeners once on startup
 setupRemoteControlsListeners();
+

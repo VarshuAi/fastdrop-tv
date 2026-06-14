@@ -408,6 +408,49 @@ app.get('/stream', (req, res) => {
   }
 });
 
+// Endpoint: POST /api/upload
+// Receives raw binary stream for high-speed file upload
+app.post('/api/upload', (req, res) => {
+  const fileName = req.query.name;
+  const relativeSubpath = req.query.path || '';
+  if (!fileName) {
+    return res.status(400).send('Missing file name');
+  }
+
+  const targetPath = path.join(resolvedSharedFolder, relativeSubpath, fileName);
+
+  // Security check: Path traversal prevention
+  if (!isPathSafe(targetPath)) {
+    log(`Security Warning: Blocked upload request outside shared directory: "${targetPath}"`);
+    return res.status(403).send('Access denied');
+  }
+
+  log(`Receiving upload: "${fileName}" -> "${targetPath}"`);
+
+  const writeStream = fs.createWriteStream(targetPath);
+  req.pipe(writeStream);
+
+  writeStream.on('finish', () => {
+    log(`Upload complete: "${fileName}"`);
+    res.json({ success: true, message: 'File uploaded successfully' });
+  });
+
+  req.on('error', (err) => {
+    log(`Upload stream error for "${fileName}": ${err.message}`);
+    writeStream.destroy();
+    if (!res.headersSent) {
+      res.status(500).send(`Upload failed: ${err.message}`);
+    }
+  });
+
+  writeStream.on('error', (err) => {
+    log(`Upload write error for "${fileName}": ${err.message}`);
+    if (!res.headersSent) {
+      res.status(500).send(`Upload failed: ${err.message}`);
+    }
+  });
+});
+
 // Global casting state to coordinate TV Receiver and Phone Remote Controller
 let castState = {
   activeVideoPath: null,

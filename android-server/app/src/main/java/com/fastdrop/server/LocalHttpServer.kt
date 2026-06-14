@@ -59,26 +59,56 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
     }
 
     private fun handleClient(client: Socket) {
-        val reader = BufferedReader(InputStreamReader(client.getInputStream()))
         val out = BufferedOutputStream(client.getOutputStream())
 
         try {
-            // Read HTTP request line
-            val firstLine = reader.readLine() ?: return
-            Log.d(tag, "Request: $firstLine")
-            val tokens = StringTokenizer(firstLine)
+            val inputStream = client.getInputStream()
+            val headerBytes = ByteArrayOutputStream()
+            var state = 0
+            while (true) {
+                val b = inputStream.read()
+                if (b == -1) break
+                headerBytes.write(b)
+                if (b == 13) {
+                    if (state == 0 || state == 2) {
+                        state++
+                    } else {
+                        state = 1
+                    }
+                } else if (b == 10) {
+                    if (state == 1 || state == 3) {
+                        state++
+                        if (state == 4) break
+                    } else {
+                        state = 0
+                    }
+                } else {
+                    state = 0
+                }
+            }
+
+            val headersText = headerBytes.toString("UTF-8")
+            val headerLines = headersText.split("\r\n")
+            if (headerLines.isEmpty()) return
+            
+            val requestLine = headerLines[0]
+            Log.d(tag, "Request: $requestLine")
+            val tokens = StringTokenizer(requestLine)
             if (tokens.countTokens() < 2) return
             val method = tokens.nextToken()
-            var rawUri = tokens.nextToken()
+            val rawUri = tokens.nextToken()
 
-            // Read headers to capture 'Range' header for video seeking
+            // Read headers to capture 'Range' and 'Content-Length'
             var rangeHeader: String? = null
-            var line: String?
-            while (true) {
-                line = reader.readLine()
-                if (line.isNullOrEmpty()) break
-                if (line.lowercase(Locale.ENGLISH).startsWith("range:")) {
+            var contentLength: Long = 0
+            for (i in 1 until headerLines.size) {
+                val line = headerLines[i]
+                if (line.isEmpty()) continue
+                val lowerLine = line.lowercase(Locale.ENGLISH)
+                if (lowerLine.startsWith("range:")) {
                     rangeHeader = line.substring(6).trim()
+                } else if (lowerLine.startsWith("content-length:")) {
+                    contentLength = line.substring(15).trim().toLongOrNull() ?: 0
                 }
             }
 
@@ -87,7 +117,7 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 return
             }
 
-            if (method != "GET") {
+            if (method != "GET" && method != "POST") {
                 sendErrorResponse(out, 501, "Not Implemented")
                 return
             }
@@ -113,6 +143,9 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
                 parsedPath.startsWith("/client") -> {
                     handleAssetRequest(out, rawUri)
                 }
+                parsedPath.startsWith("/api/upload") && method == "POST" -> {
+                    handleUploadRequest(inputStream, out, rawUri, contentLength, baseSharedFolder)
+                }
                 parsedPath == "/" -> {
                     sendDashboardResponse(out)
                 }
@@ -127,7 +160,6 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
             } catch (ignored: Exception) {}
         } finally {
             try {
-                reader.close()
                 out.close()
                 client.close()
             } catch (ignored: Exception) {}
@@ -488,6 +520,60 @@ class LocalHttpServer(private val port: Int, private val assetManager: AssetMana
             file.canonicalPath.startsWith(baseDir.canonicalPath)
         } catch (e: Exception) {
             false
+        }
+    }
+
+    private fun handleUploadRequest(inputStream: InputStream, out: BufferedOutputStream, uri: String, contentLength: Long, baseDir: File) {
+        val queryParams = getQueryParams(uri)
+        val fileName = queryParams["name"] ?: ""
+        val relativeSubpath = queryParams["path"] ?: ""
+
+        if (fileName.isEmpty()) {
+            sendErrorResponse(out, 400, "Missing file name")
+            return
+        }
+
+        val targetFile = File(File(baseDir, relativeSubpath), fileName)
+
+        // Security check: Path traversal prevention
+        if (!isPathSafe(targetFile, baseDir)) {
+            sendErrorResponse(out, 403, "Access Denied")
+            return
+        }
+
+        Log.d(tag, "Receiving upload: $fileName -> ${targetFile.absolutePath}")
+
+        try {
+            // Ensure parent directory exists
+            targetFile.parentFile?.mkdirs()
+
+            val fileOut = FileOutputStream(targetFile)
+            val buffer = ByteArray(8192)
+            var bytesRemaining = contentLength
+            while (bytesRemaining > 0) {
+                val toRead = Math.min(buffer.size.toLong(), bytesRemaining).toInt()
+                val read = inputStream.read(buffer, 0, toRead)
+                if (read == -1) break
+                fileOut.write(buffer, 0, read)
+                bytesRemaining -= read
+            }
+            fileOut.flush()
+            fileOut.close()
+
+            Log.d(tag, "Upload complete: $fileName")
+            val response = "{\"success\":true,\"message\":\"File uploaded successfully\"}"
+            val responseBytes = response.toByteArray(Charsets.UTF_8)
+            
+            out.write("HTTP/1.1 200 OK\r\n".toByteArray())
+            out.write("Content-Type: application/json\r\n".toByteArray())
+            out.write("Content-Length: ${responseBytes.size}\r\n".toByteArray())
+            out.write("Access-Control-Allow-Origin: *\r\n".toByteArray())
+            out.write("Connection: close\r\n\r\n".toByteArray())
+            out.write(responseBytes)
+            out.flush()
+        } catch (e: Exception) {
+            Log.e(tag, "Upload failed for $fileName: ${e.message}")
+            sendErrorResponse(out, 500, "Internal Server Error: ${e.message}")
         }
     }
 

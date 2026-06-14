@@ -1373,3 +1373,39 @@ svg.icon {
   color: #fff;
   box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
 }
+
+/* Floating Upload Action Button (FAB) */
+.upload-fab {
+  position: absolute;
+  bottom: 110px;
+  right: 50px;
+  z-index: 100;
+}
+
+.btn-fab {
+  background: var(--accent-color);
+  color: var(--focus-text);
+  border: none;
+  width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 10px 25px var(--accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease;
+}
+
+.btn-fab.focused, .btn-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 15px 35px var(--accent-glow);
+}
+
+/* Upload Card styling inside progress overlay */
+.upload-card {
+  width: 480px;
+  padding: 35px;
+  text-align: center;
+}
+
